@@ -50,7 +50,7 @@ That's it. It works right away, no restart.
 
 ## Heads-up
 
-- **Mouse clicks need the fullscreen layout.** It's on by default in Claude Code. It's off inside tmux, so clicks won't reach the bar there.
+- **Mouse clicks need the fullscreen layout.** It's on by default in Claude Code. Inside tmux, clicks work too if `mouse` is on in tmux and your terminal reports the mouse (in iTerm2: Profiles > Terminal > "Enable mouse reporting").
 - **Folder tabs need iTerm2.** They open tabs with `osascript`.
 - **Mode label.** After **Shift+Tab**, the mode label's width updates on your next message.
 - **Early-access API.** This mod is built on Claude Code's early-access mod API, which may change.
