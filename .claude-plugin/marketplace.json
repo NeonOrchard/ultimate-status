@@ -1,0 +1,6 @@
+{
+  "name": "ultimate-status",
+  "description": "A colorful, clickable status bar for Claude Code.",
+  "owner": { "name": "Neon Orchard" },
+  "plugins": [{ "name": "ultimate-status", "source": "./" }]
+}
