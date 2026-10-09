@@ -70,7 +70,7 @@ const q = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`
 
 async function openTab($: EngineInterface, dir: string, withClaude: boolean) {
   const cmd = `cd ${q(dir)}${withClaude ? ' && claude' : ''}`
-  await $.process.run([
+  const r = await $.process.run([
     'osascript',
     '-e', 'on run argv',
     '-e', 'tell application "iTerm2"',
@@ -81,7 +81,9 @@ async function openTab($: EngineInterface, dir: string, withClaude: boolean) {
     '-e', 'end tell',
     '-e', 'end run',
     cmd,
-  ])
+  ]).catch(() => undefined)
+  // Folder tabs need macOS and iTerm2; say so instead of failing silently.
+  if (r?.exitCode !== 0) $.ui.toast('ultimate-status: opening a tab needs iTerm2 on macOS.')
 }
 
 async function speedOf($: EngineInterface): Promise<string> {
