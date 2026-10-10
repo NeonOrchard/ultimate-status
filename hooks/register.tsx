@@ -172,6 +172,28 @@ async function version($: EngineInterface): Promise<string> {
   }
 }
 
+// The repo's newest local branches, most recently used first.
+async function branches($: EngineInterface): Promise<string[]> {
+  const r = await $.process.run(['git', '--no-optional-locks', 'for-each-ref', '--sort=-committerdate', '--count=8',
+    '--format=%(refname:short)', 'refs/heads'], { timeoutMs: 2000 }).catch(() => undefined)
+  return r?.exitCode === 0 ? r.stdout.split('\n').map(b => b.trim()).filter(Boolean) : []
+}
+
+// Switches to a branch, or makes a new one. Switching with uncommitted changes
+// is refused rather than risking them; a new branch takes them along.
+async function switchBranch($: EngineInterface, name: string, create: boolean) {
+  if (!create) {
+    const status = await $.process.run(['git', 'status', '--porcelain'], { timeoutMs: 3000 }).catch(() => undefined)
+    if (status?.stdout.trim()) {
+      $.ui.toast('ultimate-status: you have uncommitted changes. Commit or stash them before switching branches.')
+      return
+    }
+  }
+  const r = await $.process.run(['git', 'switch', ...(create ? ['-c'] : []), name], { timeoutMs: 10000 }).catch(() => undefined)
+  if (r?.exitCode === 0) $.ui.toast(create ? `Made and switched to ${name}` : `Switched to ${name}`)
+  else $.ui.toast(`ultimate-status: ${r?.stderr.trim().split('\n')[0] || 'git could not switch branches.'}`)
+}
+
 async function speedOf($: EngineInterface): Promise<string> {
   try {
     const row = (await $.config.list()).find(r => r.key === 'fast')
@@ -222,7 +244,7 @@ function itemContent(d: Bar, id: ItemId, max?: number): Piece[] {
       return out
     }
     case 'branch':
-      return d.branch ? [{ fg: C.branch, text: `⎇ ${d.branch}` }] : []
+      return d.branch ? [{ fg: C.branch, text: `⎇ ${d.branch}`, range: 'branch' }] : []
     case 'ctx':
     {
       // Filled part in the value color, the rest dim: the line style is one
@@ -506,7 +528,10 @@ async function installFont($: EngineInterface) {
 // band's [-] can't collapse it away; its menus and hover tips open in the band above.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function barParts($: EngineInterface, e: any, columns: number | string) {
-  const { Box, Button, Text } = $.ui.resolve(e)
+  const els = $.ui.resolve(e)
+  const { Box, Button, Text } = els
+  // Every surface but mobile has text fields.
+  const Input = 'Input' in els ? els.Input : undefined
   const d = await gather($)
   const open = await read($, popup)
   const close = () => update($, popup, () => null)
@@ -516,7 +541,7 @@ async function barParts($: EngineInterface, e: any, columns: number | string) {
     ['model', `Model: ${d.model}. Click to change the model or the speed.`],
     ['speed', `Speed: ${d.speed}. Click to change the model or the speed.`],
     ['path', `Folder: ${d.cwd}. Click any part to open a new iTerm tab there.`],
-    ['branch', `Git branch: ${d.branch || 'none'}. The branch this folder is on.`],
+    ['branch', `Git branch: ${d.branch || 'none'}. Click to switch branches or make a new one.`],
     ['ctx', `Context: ${pct(d.ctx)} of my working memory for this chat is used. When it fills up, older parts get summarized.`],
     ['five', `5-hour window: ${leftPct(d.u.five)} left of your usage limit for the current 5 hours.${left(d.u.fiveResets)}`],
     ['week', `7-day window: ${leftPct(d.u.week)} left of your weekly usage limit.${left(d.u.weekResets)}`],
@@ -539,6 +564,24 @@ async function barParts($: EngineInterface, e: any, columns: number | string) {
         <Button key="font-yes" label="Install" onPress={async () => { await done(); await installFont($) }} />
         <Button key="font-no" label="No, use words" onPress={async () => { await done(); await saveSettings($, { icons: false }) }} />
         <Button key="font-later" label="Later" onPress={close} />
+      </Box>
+    )
+  } else if (open === 'branch') {
+    const list = (await branches($)).filter(b => b !== d.branch)
+    popupRow = (
+      <Box gap={2} flexWrap="wrap">
+        <Text color={inkColor(C.info)}>{list.length ? 'Switch to' : 'No other branches'}</Text>
+        {list.map(b => <Button key={`br-${b}`} label={b} onPress={async () => { await close(); await switchBranch($, b, false) }} />)}
+        <Button key="br-new" label="New branch…" onPress={() => update($, popup, () => 'branch-new')} />
+        <Button key="close" label="✕" onPress={close} />
+      </Box>
+    )
+  } else if (open === 'branch-new' && Input) {
+    popupRow = (
+      <Box gap={2}>
+        <Input key="br-name" label="New branch" placeholder="name" submitLabel="Create" autoFocus
+          onSubmit={async (v: string) => { if (!v.trim()) return; await close(); await switchBranch($, v.trim(), true) }} />
+        <Button key="close" label="✕" onPress={close} />
       </Box>
     )
   } else if (open?.startsWith('dir:')) {
@@ -577,6 +620,7 @@ async function barParts($: EngineInterface, e: any, columns: number | string) {
         {ps.map((p, i) => {
           const t = <Text key={`${id}${i}`} color={inkColor(p.fg)} hover={{ scope: id, color: inkColor(hoverColor(p.fg, hover)) }}>{p.text}</Text>
           if (p.range === 'model') return <Button key={`${id}b${i}`} plain onPress={toggle('model')}>{t}</Button>
+          if (p.range === 'branch') return <Button key={`${id}b${i}`} plain onPress={toggle('branch')}>{t}</Button>
           if (p.range?.startsWith('d')) {
             const dir = dirs[Number(p.range.slice(1))]
             return dir ? <Button key={`${id}b${i}`} plain onPress={toggle(`dir:${dir.path}`)}>{t}</Button> : t
