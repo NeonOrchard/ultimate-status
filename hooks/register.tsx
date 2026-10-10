@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Usage } from '../types'
-import { DEFAULT_BAR, blockPieces, fromLayout, move, piecesWidth, renderBar, resize, width } from './bar'
+import { DEFAULT_BAR, blockPieces, fromLayout, move, piecesWidth, renderBar, resize } from './bar'
 import type { BarConfig, Geom, ItemId, Piece } from './bar'
 import { panel } from './panel'
 import { CTX_BARS, DEFAULTS, DEFAULT_COLORS, cleanSettings, hoverColor, inkColor, tmuxColor } from './settings'
@@ -590,8 +590,8 @@ async function barParts($: EngineInterface, e: any, columns: number | string) {
   const room = typeof columns === 'number' ? columns : (e.viewport?.columns as number | undefined) ?? knownColumns ?? 80
   const pathRoom = fullWidth <= room - 2 ? FULL : Math.max(8, pathFull - (fullWidth - (room - 2)))
   const dirs = shortenPath(d.dirs, pathRoom)
-  // A pop-up menu: a solid card on its own row under the bar, lined up under
-  // the item it belongs to (see menuRow).
+  // A pop-up menu: a solid card in the band above the chat box (the only
+  // place Claude lets a mod's buttons take clicks reliably).
   const menu = (key: string, title: string | null, entries: [string, () => unknown][]) => (
     <Box key={`menu-${key}`} flexDirection="column"
       borderStyle="round" borderColor={inkColor(C.dim)} backgroundColor={inkColor(C.menu)} paddingX={1}>
@@ -680,51 +680,21 @@ async function barParts($: EngineInterface, e: any, columns: number | string) {
     </Box>
   )
 
-  // Where a piece starts on the bar: its side, and for the left side its
-  // column, so a menu can sit right under it.
-  const gapWidth = (b: { divider: string }) => (b.divider ? 4 + width(b.divider) : 2)
-  const locate = (match: (id: ItemId, p: Piece) => boolean): { side: 'left' | 'right'; at: number } | null => {
-    for (const side of ['left', 'right'] as const) {
-      const list = side === 'left' ? leftBlocks : rightBlocks
-      let x = 0
-      for (const [bi, b] of list.entries()) {
-        if (side === 'left' && bi > 0) x += gapWidth(list[bi - 1]!)
-        if (side === 'right') x += gapWidth(b)
-        for (const [ii, id] of b.items.filter(it => itemContent(d, it).length > 0).entries()) {
-          if (ii > 0) x += width(b.joiner)
-          for (const p of itemContent(d, id, pathRoom)) {
-            if (match(id, p)) return { side, at: x }
-            x += width(p.text)
-          }
-        }
-      }
-    }
-    return null
-  }
-  let card: ReturnType<typeof menu> | null = null
-  let anchor: ReturnType<typeof locate> = null
   if (open === 'model') {
-    anchor = locate(id => id === 'model' || id === 'speed')
-    card = menu('model', null, [
+    popupRow = menu('model', null, [
       ['Model…', () => $.command.run({ command: 'model' })],
       [d.speed === 'Fast' ? 'Speed: Normal' : 'Speed: ⚡ Fast', () => $.command.run({ command: 'fast' })],
     ])
   } else if (open?.startsWith('dir:')) {
     const dir = open.slice(4)
-    anchor = locate((id, p) => id === 'path' && p.range === `d${dirs.findIndex(x => x.path === dir)}`)
-    card = menu('dir', dir, [
+    popupRow = menu('dir', dir, [
       [windows ? 'Open in File Explorer' : 'Open in Finder', () => openFolder($, dir)],
       ['Copy path', () => copyPath($, dir)],
       ['New tab', () => openTab($, dir, false)],
       ['Tab + Claude', () => openTab($, dir, true)],
     ])
   }
-  const menuRow = card && (
-    <Box key="menurow" width={columns} justifyContent={anchor?.side === 'right' ? 'flex-end' : 'flex-start'}>
-      <Box marginLeft={anchor?.side === 'left' ? anchor.at : 0}>{card}</Box>
-    </Box>
-  )
-  return { popupRow, tipRows, barRow, menuRow }
+  return { popupRow, tipRows, barRow }
 }
 
 export const register: Register = on => {
@@ -871,13 +841,12 @@ export const register: Register = on => {
     const { Box } = $.ui.resolve(e)
     // "100%", not viewport.columns: that is the transcript's width, which a docked
     // pane (the settings panel) narrows, while this row spans the whole terminal.
-    const { barRow, menuRow } = await barParts($, e, '100%')
+    const { barRow } = await barParts($, e, '100%')
     const hint = await next(e)
     // No width on this Box: the engine's own hint line can't sit under a sized Box.
     return (
       <Box flexDirection="column">
         {barRow}
-        {menuRow}
         {hint}
       </Box>
     )
