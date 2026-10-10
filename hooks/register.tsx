@@ -7,7 +7,7 @@ import type { BlockId, Geom, Layout, Piece } from './layout'
 import { DEFAULTS, DEFAULT_COLORS, cleanSettings } from './settings'
 import type { Colors, Settings } from './settings'
 
-// Ultimate Status: a bar on its own line, directly above the chat box.
+// Ultimate Status: in tmux, rows under the tabs; elsewhere, a line above the chat box.
 //   left:  ◆ Model ⚡ Speed  │  ~ / WorkSpace / MacForce  │  ⎇ branch
 //   right: ctx ▰▰▱▱ 42%  │  5h 77%  ·  7d 60%
 // Click the model for model/speed choices, a folder for "New tab" /

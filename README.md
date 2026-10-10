@@ -2,7 +2,9 @@
 
 A colorful, clickable status bar for Claude Code.
 
-Inside tmux, it sits on a fixed line at the top of Claude's pane, right under the tmux tabs, so it stays put while you scroll. Outside tmux, it sits on its own line, directly above the chat box. Hover any part to see what it means.
+**Inside tmux**, it gets three rows right under the tmux tabs: a divider, the bar, a divider. It stays put while you scroll. The rows show only while a Claude pane is active.
+
+**Outside tmux**, it sits on its own line, directly above the chat box. Hover any part to see what it means.
 
 <br>
 
@@ -11,21 +13,33 @@ Inside tmux, it sits on a fixed line at the top of Claude's pane, right under th
 **Left side**
 
 - `◆ Model ⚡ Speed`
-  - Click it for a small menu.
-  - **Model…** opens `/model`.
-  - **Speed** turns `/fast` on or off.
+  - Click it for a menu: **Model…** (opens `/model`) or the speed switch (`/fast`).
 - **The full path**, like `~/WorkSpace/MacForce/`
   - Each folder has its own color.
   - Click a folder for a menu: **New tab** or **Tab + Claude**.
-  - Both open an iTerm2 tab in that folder.
-  - Long paths shrink the middle folders to one letter.
-- **Git branch**
+  - In tmux these open a tmux tab; outside tmux, an iTerm2 tab.
+  - The path uses all the room left. Middle folders shrink to one letter only when needed.
 
 **Right side**
 
-- **ctx** — a context bar and a percent.
-- **5h** and **7d** — how much usage you have left.
+- **Git branch**
+- **ctx**: a context bar and a percent.
+- **5h** and **7d**: how much usage you have left.
 - Each label and value has its own matching color.
+
+<br>
+
+## Arrange the bar (tmux)
+
+The bar is made of blocks: model, path, branch, ctx, usage. Left blocks are pinned to the left edge, right blocks to the right edge.
+
+- `/ultimate-status unlock`: the dividers turn yellow `┃`.
+  - Drag a divider to resize the block next to it.
+  - Drag a block to move it, even to the other side. It moves when you let go.
+- `/ultimate-status lock`: done. Clicks open the menus again.
+- `/ultimate-status reset`: back to the first layout.
+
+Your layout is saved between sessions.
 
 Colors are [Catppuccin Macchiato](https://catppuccin.com).
 
