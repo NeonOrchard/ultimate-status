@@ -140,11 +140,10 @@ let unlocked = false
 let geom: Geom = []
 let last: { d: Bar; columns: number } | undefined
 let poll: { cancel(): void } | undefined
+// Only a found pane is kept: a lookup that fails early (a resumed session
+// can draw before the host is ready) is tried again on the next draw.
 async function paneOf($: EngineInterface): Promise<string | null> {
-  if (tmuxPane === undefined) {
-    const r = await $.process.run(['printenv', 'TMUX_PANE']).catch(() => undefined)
-    tmuxPane = r?.exitCode === 0 && r.stdout.trim() ? r.stdout.trim() : null
-  }
+  if (!tmuxPane) tmuxPane = (await $.env.get('TMUX_PANE').catch(() => undefined))?.trim() || null
   return tmuxPane
 }
 // The bar and what its menus need (each folder's path, the speed to switch
@@ -483,7 +482,7 @@ async function gather($: EngineInterface) {
   const model = prettyModel(await $.session.model())
   const speed = await speedOf($)
   const cwd = await $.session.cwd()
-  const home = (await $.process.run(['printenv', 'HOME'])).stdout.trim()
+  const home = (await $.env.get('HOME')) ?? ''
   let branch = ''
   try {
     const r = await $.process.run(['git', '--no-optional-locks', 'branch', '--show-current'], { timeoutMs: 2000 })
