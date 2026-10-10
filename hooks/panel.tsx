@@ -20,7 +20,7 @@ const ITEM_COLORS: Record<ItemId, [string, string][]> = {
   five: [['fiveLabel', 'Label'], ['fiveValue', 'Value']],
   week: [['weekLabel', 'Label'], ['weekValue', 'Value'], ['info', '"left"']],
 }
-const OTHER_COLORS: [string, string][] = [['dim', 'Dividers and joiners'], ['info', 'Notes and tips'], ['menu', 'Menu and tip cards']]
+const OTHER_COLORS: [string, string][] = [['dim', 'Dividers and joiners'], ['info', 'Notes and tips']]
 
 const getColor = (c: Colors, key: string): string =>
   key.startsWith('path.') ? c.path[Number(key.slice(5))] ?? c.path[0] ?? c.dim : (c[key as keyof Omit<Colors, 'path'>] as string)
@@ -60,8 +60,7 @@ export type PanelContext = {
   fiveShow: string
   weekShow: string
   hover: string
-  claudeCmd: string
-  save: (next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean; fiveShow?: string; weekShow?: string; hover?: string; claudeCmd?: string }) => Promise<void>
+  save: (next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean; fiveShow?: string; weekShow?: string; hover?: string }) => Promise<void>
 }
 
 type El = (props: Record<string, unknown>, ...children: unknown[]) => RenderElement
@@ -201,9 +200,6 @@ export function panel(ctx: PanelContext): RenderElement {
         {row('five-show', '5h shows',
           dropdown('fiveshow', ctx.fiveShow, Object.entries(USAGE_SHOW).map(([value, label]) => ({ value, label })),
             v => ctx.save({ fiveShow: v })))}
-        {!menu && row('claude-cmd', 'Claude command',
-          <Input key="claudecmd" value={ctx.claudeCmd} placeholder="claude --continue" submitLabel="Save"
-            onSubmit={(v: string) => v.trim() ? ctx.save({ claudeCmd: v.trim() }) : ctx.toast('ultimate-status: the command can\'t be empty.')} />)}
         {row('week-show', '7d shows',
           dropdown('weekshow', ctx.weekShow, Object.entries(USAGE_SHOW).map(([value, label]) => ({ value, label })),
             v => ctx.save({ weekShow: v })))}

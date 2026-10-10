@@ -15,9 +15,7 @@ Each piece of data is an **item**: Model, Speed, Path, Git branch, Context, 5h u
 - **Model** and **Speed**: click for a menu, **Model…** (opens `/model`) or the speed switch (`/fast`).
 - **Path**, like `~/WorkSpace/MacForce/` (or `E:\Code\app\` on Windows)
   - Each folder has its own color.
-  - Click a folder above the current one: a new tab opens there and runs your Claude command (set it in config, like `claude --dangerously-skip-permissions --continue`).
-  - Click the current folder for a menu: Open in Finder (File Explorer on Windows), Copy path, New tab, Tab + Claude.
-  - Tabs open in tmux, Warp or iTerm2, whichever you're in.
+  - Click a folder for **New tab** or **Tab + Claude**: a tmux tab inside tmux, a Warp tab in Warp, an iTerm2 tab in iTerm2.
   - Middle folders shrink to one letter only when there is no room.
 - **Context**: an icon, a bar and a percent. Pick its style: **Progress** (a rounded Nerd Font bar, the default with icons on), **Line** `━━━━` (thin, any font, the default with icons off) or **Shade** `█░`.
 - **Icons** (on by default): Nerd Font icons for context `󰧑` and the path `󰉋`. Off shows `ctx` and no folder icon.
@@ -75,7 +73,6 @@ The panel saves to `ultimate-status.json` in your Claude config folder (`~/.clau
 - `bar`: the blocks, in order. Each has `side`, `items`, `divider`, `joiner`, `resizable` and an optional `width`.
 - `colors`: any of `dim`, `info`, `model`, `speed`, `path` (a list), `branch`, `ctxLabel`, `ctxValue`, `fiveLabel`, `fiveValue`, `weekLabel`, `weekValue`, as `#rrggbb` or `ansi:0` to `ansi:15` (your terminal theme's colors).
 - `hover`: `complement` (the default, the opposite color) or `brighter`.
-- `claudeCmd`: what a folder click runs in its new tab (default `claude`).
 - `fiveShow`, `weekShow`: `percent` (the default) or `time` (time until the window resets).
 - `ctxBar`: `progress`, `line` or `shade`.
 - `icons`: `true` or `false`.
