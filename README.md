@@ -4,7 +4,7 @@ A colorful, clickable status bar for Claude Code.
 
 **Inside tmux**, it gets three rows right under the tmux tabs: a divider, the bar, a divider. It stays put while you scroll. The rows show only while a Claude pane is active.
 
-**Outside tmux** (and on Windows, which has no tmux), it sits on its own line, directly above the chat box. Claude Code has no spot at the top of the screen, so the top bar needs tmux. Hover any part to see what it means.
+**Outside tmux** (Warp, plain iTerm2, and Windows, which has no tmux), it sits on its own line at the very bottom, under the chat box. Its menus and hover info open above the box. Claude Code has no spot at the top of the screen, so the top bar needs tmux. Hover any part to see what it means.
 
 <br>
 
