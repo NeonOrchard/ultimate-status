@@ -72,6 +72,7 @@ The panel saves to `ultimate-status.json` in your Claude config folder (`~/.clau
 
 - `bar`: the blocks, in order. Each has `side`, `items`, `divider`, `joiner`, `resizable` and an optional `width`.
 - `colors`: any of `dim`, `info`, `model`, `speed`, `path` (a list), `branch`, `ctxLabel`, `ctxValue`, `fiveLabel`, `fiveValue`, `weekLabel`, `weekValue`, as `#rrggbb` or `ansi:0` to `ansi:15` (your terminal theme's colors).
+- `hover`: `complement` (the default, the opposite color) or `brighter`.
 - `fiveShow`, `weekShow`: `percent` (the default) or `time` (time until the window resets).
 - `ctxBar`: `progress`, `line` or `shade`.
 - `icons`: `true` or `false`.

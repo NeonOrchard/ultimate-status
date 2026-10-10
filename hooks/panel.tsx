@@ -2,7 +2,7 @@ import type { RenderElement } from 'claude-code'
 
 import { DEFAULT_BAR, DIVIDERS, ITEMS, JOINERS, addBlock, flipBlock, moveItem, removeBlock, setBlock, shiftBlock } from './bar'
 import type { BarConfig, Block, ItemId } from './bar'
-import { ANSI_NAMES, CATPPUCCIN, CTX_BARS, DEFAULT_COLORS, USAGE_SHOW, inkColor, isColor } from './settings'
+import { ANSI_NAMES, CATPPUCCIN, CTX_BARS, DEFAULT_COLORS, HOVER_STYLES, USAGE_SHOW, inkColor, isColor } from './settings'
 import type { Colors } from './settings'
 
 // The settings panel: /ultimate-status config. Every change saves right away
@@ -59,7 +59,8 @@ export type PanelContext = {
   icons: boolean
   fiveShow: string
   weekShow: string
-  save: (next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean; fiveShow?: string; weekShow?: string }) => Promise<void>
+  hover: string
+  save: (next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean; fiveShow?: string; weekShow?: string; hover?: string }) => Promise<void>
 }
 
 type El = (props: Record<string, unknown>, ...children: unknown[]) => RenderElement
@@ -260,6 +261,9 @@ export function panel(ctx: PanelContext): RenderElement {
       <Box flexDirection="column" marginTop={1}>
         {ITEMS.map(it => colorRow(`cr-${it.id}`, it.name, ITEM_COLORS[it.id]))}
         {colorRow('cr-other', 'Other', OTHER_COLORS)}
+        {row('hover-style', 'On hover',
+          dropdown('hoverstyle', ctx.hover, Object.entries(HOVER_STYLES).map(([value, label]) => ({ value, label })),
+            v => ctx.save({ hover: v })))}
       </Box>
       <Box marginTop={1}>
         {btn({ key: 'reset-colors', label: 'Reset colors', onPress: () => ctx.save({ colors: DEFAULT_COLORS }) })}

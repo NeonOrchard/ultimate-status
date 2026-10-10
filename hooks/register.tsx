@@ -5,7 +5,7 @@ import type { Usage } from '../types'
 import { DEFAULT_BAR, blockPieces, fromLayout, move, piecesWidth, renderBar, resize } from './bar'
 import type { BarConfig, Geom, ItemId, Piece } from './bar'
 import { panel } from './panel'
-import { CTX_BARS, DEFAULTS, DEFAULT_COLORS, brighten, cleanSettings, inkColor, tmuxColor } from './settings'
+import { CTX_BARS, DEFAULTS, DEFAULT_COLORS, cleanSettings, hoverColor, inkColor, tmuxColor } from './settings'
 import type { Colors, Settings } from './settings'
 
 // Ultimate Status: in tmux, rows under the tabs; elsewhere, a line above the chat box.
@@ -29,6 +29,7 @@ let ctxBar = DEFAULTS.ctxBar
 let icons = DEFAULTS.icons
 let fiveShow = DEFAULTS.fiveShow
 let weekShow = DEFAULTS.weekShow
+let hover = DEFAULTS.hover
 
 export function prettyModel(id: string): string {
   const m = /claude-([a-z]+)-(\d+)(?:-(\d+))?/i.exec(id)
@@ -354,6 +355,7 @@ async function useSettings($: EngineInterface) {
   icons = s.icons
   fiveShow = s.fiveShow
   weekShow = s.weekShow
+  hover = s.hover
   if (!unlocked && cached && cached.mtime !== applied) {
     applied = cached.mtime
     if (s.bar) bar = s.bar
@@ -362,20 +364,21 @@ async function useSettings($: EngineInterface) {
 
 // Writes the bar and colors into the file, keeping its other keys; a key set
 // to `undefined` is taken out. A file that isn't valid JSON is left alone.
-export async function saveSettings($: EngineInterface, next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean; fiveShow?: string; weekShow?: string }) {
+export async function saveSettings($: EngineInterface, next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean; fiveShow?: string; weekShow?: string; hover?: string }) {
   if ('bar' in next) bar = next.bar ?? DEFAULT_BAR
   if ('colors' in next) C = next.colors ?? DEFAULT_COLORS
   if ('ctxBar' in next) ctxBar = next.ctxBar ?? DEFAULTS.ctxBar
   if ('icons' in next) icons = next.icons ?? DEFAULTS.icons
   if ('fiveShow' in next) fiveShow = next.fiveShow ?? DEFAULTS.fiveShow
   if ('weekShow' in next) weekShow = next.weekShow ?? DEFAULTS.weekShow
+  if ('hover' in next) hover = next.hover ?? DEFAULTS.hover
   try {
     const path = await settingsPath($)
     const has = await $.fs.exists(path)
     const text = has ? ((await $.fs.read(path)) as string) : '{}'
     const o = JSON.parse(text.trim() || '{}')
     if (!o || typeof o !== 'object' || Array.isArray(o)) throw new Error('not an object')
-    for (const k of ['bar', 'colors', 'ctxBar', 'fiveShow', 'weekShow'] as const) {
+    for (const k of ['bar', 'colors', 'ctxBar', 'fiveShow', 'weekShow', 'hover'] as const) {
       if (!(k in next)) continue
       if (next[k]) o[k] = next[k]
       else delete o[k]
@@ -572,7 +575,7 @@ async function barParts($: EngineInterface, e: any, columns: number | string) {
       // A Box, not a Text: Buttons can't sit inside an inline element.
       <Box key={`${b.id}-${id}`}>
         {ps.map((p, i) => {
-          const t = <Text key={`${id}${i}`} color={inkColor(p.fg)} hover={{ scope: id, color: inkColor(brighten(p.fg)) }}>{p.text}</Text>
+          const t = <Text key={`${id}${i}`} color={inkColor(p.fg)} hover={{ scope: id, color: inkColor(hoverColor(p.fg, hover)) }}>{p.text}</Text>
           if (p.range === 'model') return <Button key={`${id}b${i}`} plain onPress={toggle('model')}>{t}</Button>
           if (p.range?.startsWith('d')) {
             const dir = dirs[Number(p.range.slice(1))]
@@ -646,6 +649,7 @@ export const register: Register = on => {
     icons = s.icons
     fiveShow = s.fiveShow
     weekShow = s.weekShow
+    hover = s.hover
     // Before the settings file, a dragged layout lived in the mod store.
     const stored = await $.store.get('layout')
     bar = s.bar ?? (stored ? fromLayout(stored) : DEFAULT_BAR)
@@ -695,6 +699,7 @@ export const register: Register = on => {
       icons,
       fiveShow,
       weekShow,
+      hover,
       picking: await read($, pick),
       shownFlavor: await read($, flavor),
       setPick: fn => { void update($, pick, fn) },

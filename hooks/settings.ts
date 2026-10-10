@@ -33,6 +33,8 @@ export type Settings = {
   // What 5h and 7d show: the percent left, or the time until the window resets.
   fiveShow: string
   weekShow: string
+  // How hovered items change color; see HOVER_STYLES.
+  hover: string
 }
 
 // Catppuccin Macchiato. Left side cool, right side warm.
@@ -60,7 +62,7 @@ export const CTX_BARS: Record<string, { name: string; full: string; empty: strin
   progress: { name: 'Progress (Nerd Font)', full: '\uee04', empty: '\uee01', preview: '\uee03\uee04\uee04\uee01\uee01\uee02' },
 }
 export const USAGE_SHOW: Record<string, string> = { percent: 'Percent left', time: 'Time until reset' }
-export const DEFAULTS: Settings = { colors: DEFAULT_COLORS, pathMax: 0, ctxBar: 'progress', icons: true, fiveShow: 'percent', weekShow: 'percent' }
+export const DEFAULTS: Settings = { colors: DEFAULT_COLORS, pathMax: 0, ctxBar: 'progress', icons: true, fiveShow: 'percent', weekShow: 'percent', hover: 'complement' }
 
 // A color is a hex string, or `ansi:0` to `ansi:15`: one of the terminal
 // theme's own 16 colors, so it follows whatever theme the terminal has.
@@ -87,6 +89,38 @@ export function brighten(c: string): string {
   const mix = (x: number) => Math.round(x + (255 - x) * 0.5).toString(16).padStart(2, '0')
   return `#${mix(v >> 16)}${mix((v >> 8) & 255)}${mix(v & 255)}`
 }
+
+// The opposite color on the wheel, same lightness and softness: hue turned
+// 180 degrees. Terminal theme colors swap with their opposite (red and cyan,
+// green and magenta, yellow and blue), staying normal or bright.
+const ANSI_OPPOSITE = [7, 6, 5, 4, 3, 2, 1, 0]
+export function complement(c: string): string {
+  if (c.startsWith('ansi:')) {
+    const n = Number(c.slice(5))
+    return `ansi:${(n >= 8 ? 8 : 0) + ANSI_OPPOSITE[n % 8]!}`
+  }
+  const m = /^#([0-9a-f]{6})$/i.exec(c)
+  if (!m) return c
+  const v = parseInt(m[1]!, 16)
+  const [r, g, b] = [(v >> 16) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255]
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const l = (max + min) / 2
+  const d = max - min
+  if (d === 0) return c
+  const s = d / (1 - Math.abs(2 * l - 1))
+  let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+  h = (h * 60 + 180 + 360) % 360
+  const k = (n: number) => (n + h / 30) % 12
+  const a = s * Math.min(l, 1 - l)
+  const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))
+  const hex = (x: number) => Math.round(x * 255).toString(16).padStart(2, '0')
+  return `#${hex(f(0))}${hex(f(8))}${hex(f(4))}`
+}
+
+// How a hovered item changes color.
+export const HOVER_STYLES: Record<string, string> = { complement: 'Opposite color', brighter: 'Brighter' }
+export const hoverColor = (c: string, style: string) => (style === 'brighter' ? brighten(c) : complement(c))
 
 export const inkColor = (c: string) => {
   if (!c.startsWith('ansi:')) return c
@@ -119,7 +153,7 @@ export function cleanSettings(v: unknown): Settings {
   // Not picked yet: the Nerd Font progress bar with icons on, the plain line without.
   const ctxBar = typeof o.ctxBar === 'string' && o.ctxBar in CTX_BARS ? o.ctxBar : icons ? 'progress' : 'line'
   const show = (v: unknown) => (typeof v === 'string' && v in USAGE_SHOW ? v : 'percent')
-  const out: Settings = { colors, pathMax, ctxBar, icons, fiveShow: show(o.fiveShow), weekShow: show(o.weekShow) }
+  const out: Settings = { colors, pathMax, ctxBar, icons, fiveShow: show(o.fiveShow), weekShow: show(o.weekShow), hover: typeof o.hover === 'string' && o.hover in HOVER_STYLES ? o.hover : DEFAULTS.hover }
   if (o.bar && typeof o.bar === 'object') out.bar = cleanBar(o.bar)
   else if (o.layout && typeof o.layout === 'object') out.bar = fromLayout(o.layout)
   return out
