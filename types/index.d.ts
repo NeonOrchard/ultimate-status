@@ -12,8 +12,6 @@ declare module 'claude-code' {
       usage: Usage
       // Which popup is open: 'model', 'dir:<absolute path>', or null.
       popup: string | null
-      // The permission mode, as hooks report it (default, auto, plan, ...).
-      mode: string
     }
   }
 }

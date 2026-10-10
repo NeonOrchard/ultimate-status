@@ -2,7 +2,7 @@
 
 A colorful, clickable status bar for Claude Code.
 
-It sits on the line under the chat box. Hover any part to see what it means.
+Inside tmux, it sits on a fixed line at the top of Claude's pane, right under the tmux tabs, so it stays put while you scroll. Outside tmux, it sits on its own line, directly above the chat box. Hover any part to see what it means.
 
 <br>
 
@@ -48,11 +48,35 @@ That's it. It works right away, no restart.
 
 <br>
 
+## Settings (optional)
+
+Make a file named `ultimate-status.json` in your Claude config folder (`~/.claude/`, or `$CLAUDE_CONFIG_DIR` if you set it). Every key is optional:
+
+```json
+{
+  "layout": {
+    "left": ["model", "path"],
+    "right": ["branch", "ctx", "usage"],
+    "widths": { "branch": 20 }
+  },
+  "colors": { "model": "#c6a0f6", "path": ["#8aadf4", "#7dc4e4"] },
+  "pathMax": 28
+}
+```
+
+- `layout`: which blocks sit on each side, in order, and fixed widths in columns. Blocks are `model`, `path`, `branch`, `ctx` and `usage`. Used inside tmux.
+- `colors`: any of `dim`, `info`, `model`, `speed`, `path` (a list), `branch`, `ctxLabel`, `ctxValue`, `fiveLabel`, `fiveValue`, `weekLabel`, `weekValue`, as `#rrggbb`.
+- `pathMax`: outside tmux, the path shrinks its middle folders past this many characters.
+- Dragging the bar (`/ultimate-status unlock`) saves its layout into this file. `/ultimate-status reset` takes it out again.
+
+Changes show on the next redraw. No restart needed.
+
+<br>
+
 ## Heads-up
 
 - **Mouse clicks need the fullscreen layout.** It's on by default in Claude Code. Inside tmux, clicks work too if `mouse` is on in tmux and your terminal reports the mouse (in iTerm2: Profiles > Terminal > "Enable mouse reporting").
 - **Folder tabs need iTerm2.** They open tabs with `osascript`.
-- **Mode label.** After **Shift+Tab**, the mode label's width updates on your next message.
 - **Early-access API.** This mod is built on Claude Code's early-access mod API, which may change.
 
 <br>

@@ -1,7 +1,10 @@
 {
   "name": "ultimate-status",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A clickable, colorful status bar: full path, model and speed, context, and usage windows.",
-  "author": { "name": "Neon Orchard", "url": "https://github.com/NeonOrchardDEV" },
+  "author": {
+    "name": "Neon Orchard",
+    "url": "https://github.com/NeonOrchardDEV"
+  },
   "types": "./types/index.d.ts"
 }
