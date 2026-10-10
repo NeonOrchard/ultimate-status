@@ -552,8 +552,8 @@ async function barParts($: EngineInterface, e: any, columns: number | string) {
   const toggle = (id: string) => () => update($, popup, cur => (cur === id ? null : id))
 
   const tips: [ItemId, string][] = [
-    ['model', `Model: ${d.model}. Click to change the model.`],
-    ['speed', `Speed: ${d.speed}. Click to switch fast mode on or off.`],
+    ['model', `Model: ${d.model}. Click to change the model or the speed.`],
+    ['speed', `Speed: ${d.speed}. Click to change the model or the speed.`],
     ['path', `Folder: ${d.cwd}. Click a folder above this one to start Claude there in a new tab; click this one for more.`],
     ['branch', `Git branch: ${d.branch || 'none'}. The branch this folder is on.`],
     ['ctx', `Context: ${pct(d.ctx)} of my working memory for this chat is used. When it fills up, older parts get summarized.`],
@@ -614,10 +614,8 @@ async function barParts($: EngineInterface, e: any, columns: number | string) {
       <Box key={`${b.id}-${id}`}>
         {ps.map((p, i) => {
           const t = <Text key={`${id}${i}`} color={inkColor(p.fg)} hover={{ scope: id, color: inkColor(hoverColor(p.fg, hover)) }}>{p.text}</Text>
-          // The model opens /model; the speed switches /fast. No menu.
           if (p.range === 'model') {
-            const command = id === 'speed' ? 'fast' : 'model'
-            return <Button key={`${id}b${i}`} plain onPress={() => $.command.run({ command })}>{t}</Button>
+            return <Button key={`${id}b${i}`} plain onPress={toggle('model')}>{t}</Button>
           }
           if (p.range?.startsWith('d')) {
             const n = Number(p.range.slice(1))
@@ -682,7 +680,12 @@ async function barParts($: EngineInterface, e: any, columns: number | string) {
     </Box>
   )
 
-  if (open?.startsWith('dir:')) {
+  if (open === 'model') {
+    popupRow = menu('model', null, [
+      ['Model…', () => $.command.run({ command: 'model' })],
+      [d.speed === 'Fast' ? 'Speed: Normal' : 'Speed: ⚡ Fast', () => $.command.run({ command: 'fast' })],
+    ])
+  } else if (open?.startsWith('dir:')) {
     const dir = open.slice(4)
     popupRow = menu('dir', dir, [
       [windows ? 'Open in File Explorer' : 'Open in Finder', () => openFolder($, dir)],
