@@ -17,10 +17,13 @@ const ITEM_COLORS: Record<ItemId, [string, string][]> = {
   path: [0, 1, 2, 3, 4].map(i => [`path.${i}`, `Folder ${i + 1}`]),
   branch: [['branch', 'Branch']],
   ctx: [['ctxLabel', 'Label'], ['ctxValue', 'Value']],
-  five: [['fiveLabel', 'Label'], ['fiveValue', 'Value']],
-  week: [['weekLabel', 'Label'], ['weekValue', 'Value']],
+  five: [['fiveLabel', 'Label'], ['fiveValue', 'Time']],
+  week: [['weekLabel', 'Label'], ['weekValue', 'Time']],
 }
-const OTHER_COLORS: [string, string][] = [['dim', 'Dividers and joiners'], ['info', 'Notes and tips']]
+const OTHER_COLORS: [string, string][] = [
+  ['dim', 'Dividers and joiners'], ['info', 'Notes and tips'],
+  ['usageGood', '% plenty left'], ['usageWarn', '% getting low'], ['usageLow', '% nearly out'],
+]
 
 const getColor = (c: Colors, key: string): string =>
   key.startsWith('path.') ? c.path[Number(key.slice(5))] ?? c.path[0] ?? c.dim : (c[key as keyof Omit<Colors, 'path'>] as string)
@@ -71,8 +74,9 @@ export type PanelContext = {
   icons: boolean
   fiveShow: string
   weekShow: string
+  usageCompact: boolean
   hover: string
-  save: (next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean; fiveShow?: string; weekShow?: string; hover?: string }) => Promise<void>
+  save: (next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean; fiveShow?: string; weekShow?: string; usageCompact?: boolean; hover?: string }) => Promise<void>
 }
 
 type El = (props: Record<string, unknown>, ...children: unknown[]) => RenderElement
@@ -238,7 +242,7 @@ export function panel(ctx: PanelContext): RenderElement {
   )
 
   // --- Display tab: how items look.
-  const displayChanged = (['ctxBar', 'icons', 'fiveShow', 'weekShow', 'hover'] as const).filter(k => ctx[k] !== DEFAULTS[k]).length
+  const displayChanged = (['ctxBar', 'icons', 'fiveShow', 'weekShow', 'usageCompact', 'hover'] as const).filter(k => ctx[k] !== DEFAULTS[k]).length
   const usage = Object.entries(USAGE_SHOW).map(([value, label]) => ({ value, label }))
   const displayTab = (
     <Box key="page-display" flexDirection="column">
@@ -252,11 +256,14 @@ export function panel(ctx: PanelContext): RenderElement {
             v => ctx.save({ icons: v === 'on' })))}
         {row('five-show', `${itemIcon('five', ctx.icons)} 5h shows`, cycle('fiveshow', ctx.fiveShow, usage, v => ctx.save({ fiveShow: v })))}
         {row('week-show', `${itemIcon('week', ctx.icons)} 7d shows`, cycle('weekshow', ctx.weekShow, usage, v => ctx.save({ weekShow: v })))}
+        {row('usage-gap', 'Time spacing',
+          cycle('usagegap', ctx.usageCompact ? 'compact' : 'normal', [{ value: 'normal', label: '5h 3m 95%' }, { value: 'compact', label: '5h3m 95%' }],
+            v => ctx.save({ usageCompact: v === 'compact' })))}
         {row('hover-style', 'On hover',
           cycle('hoverstyle', ctx.hover, Object.entries(HOVER_STYLES).map(([value, label]) => ({ value, label })), v => ctx.save({ hover: v })))}
       </Box>
       {status('st-display', displayChanged, 'display settings', () =>
-        ctx.save({ ctxBar: DEFAULTS.ctxBar, icons: DEFAULTS.icons, fiveShow: DEFAULTS.fiveShow, weekShow: DEFAULTS.weekShow, hover: DEFAULTS.hover }))}
+        ctx.save({ ctxBar: DEFAULTS.ctxBar, icons: DEFAULTS.icons, fiveShow: DEFAULTS.fiveShow, weekShow: DEFAULTS.weekShow, usageCompact: DEFAULTS.usageCompact, hover: DEFAULTS.hover }))}
     </Box>
   )
 

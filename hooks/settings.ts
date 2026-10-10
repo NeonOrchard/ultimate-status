@@ -18,6 +18,10 @@ export type Colors = {
   fiveValue: string
   weekLabel: string
   weekValue: string
+  // A usage percent, by how much is left: plenty, getting low, nearly out.
+  usageGood: string
+  usageWarn: string
+  usageLow: string
 }
 export type Settings = {
   // The blocks; absent until set, so the older layout in the mod's store
@@ -33,6 +37,8 @@ export type Settings = {
   // What 5h and 7d show: the percent left, or the time until the window resets.
   fiveShow: string
   weekShow: string
+  // No spaces inside the time and after the label: 5h3m 95%.
+  usageCompact: boolean
   // How hovered items change color; see HOVER_STYLES.
   hover: string
 }
@@ -51,6 +57,9 @@ export const DEFAULT_COLORS: Colors = {
   fiveValue: '#eed49f', // yellow
   weekLabel: '#f5bde6', // pink
   weekValue: '#f4dbd6', // rosewater
+  usageGood: '#a6da95', // green
+  usageWarn: '#eed49f', // yellow
+  usageLow: '#ed8796', // red
 }
 // Context bar styles: the filled and empty glyph. `line` is one glyph in two
 // colors, so no font can draw gaps or overlaps into it.
@@ -61,8 +70,8 @@ export const CTX_BARS: Record<string, { name: string; full: string; empty: strin
   // Drawn cap by cap in itemContent; full/empty here are the middle pieces.
   progress: { name: 'Progress (Nerd Font)', full: '\uee04', empty: '\uee01', preview: '\uee03\uee04\uee04\uee01\uee01\uee02' },
 }
-export const USAGE_SHOW: Record<string, string> = { percent: 'Percent left', time: 'Time until reset' }
-export const DEFAULTS: Settings = { colors: DEFAULT_COLORS, pathMax: 0, ctxBar: 'progress', icons: true, fiveShow: 'time', weekShow: 'time', hover: 'complement' }
+export const USAGE_SHOW: Record<string, string> = { both: 'Time and percent', time: 'Time until reset', percent: 'Percent left' }
+export const DEFAULTS: Settings = { colors: DEFAULT_COLORS, pathMax: 0, ctxBar: 'progress', icons: true, fiveShow: 'both', weekShow: 'both', usageCompact: false, hover: 'complement' }
 
 // A color is a hex string, or `ansi:0` to `ansi:15`: one of the terminal
 // theme's own 16 colors, so it follows whatever theme the terminal has.
@@ -152,8 +161,8 @@ export function cleanSettings(v: unknown): Settings {
   const icons = typeof o.icons === 'boolean' ? o.icons : DEFAULTS.icons
   // Not picked yet: the Nerd Font progress bar with icons on, the plain line without.
   const ctxBar = typeof o.ctxBar === 'string' && o.ctxBar in CTX_BARS ? o.ctxBar : icons ? 'progress' : 'line'
-  const show = (v: unknown) => (typeof v === 'string' && v in USAGE_SHOW ? v : 'time')
-  const out: Settings = { colors, pathMax, ctxBar, icons, fiveShow: show(o.fiveShow), weekShow: show(o.weekShow), hover: typeof o.hover === 'string' && o.hover in HOVER_STYLES ? o.hover : DEFAULTS.hover }
+  const show = (v: unknown) => (typeof v === 'string' && v in USAGE_SHOW ? v : 'both')
+  const out: Settings = { colors, pathMax, ctxBar, icons, fiveShow: show(o.fiveShow), weekShow: show(o.weekShow), usageCompact: o.usageCompact === true, hover: typeof o.hover === 'string' && o.hover in HOVER_STYLES ? o.hover : DEFAULTS.hover }
   if (o.bar && typeof o.bar === 'object') out.bar = cleanBar(o.bar)
   else if (o.layout && typeof o.layout === 'object') out.bar = fromLayout(o.layout)
   return out

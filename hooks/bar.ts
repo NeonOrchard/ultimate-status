@@ -175,7 +175,9 @@ export function renderBar(
   const right = shown.filter(b => b.side === 'right')
   const gapOf = (b: Block) => (unlocked || b.divider ? GAP : 2)
   const gaps = left.slice(0, -1).reduce((n, b) => n + gapOf(b), 0) + right.reduce((n, b) => n + gapOf(b), 0)
-  const fixed = (b: Block) => b.width ?? (b.items.includes('path') ? undefined : piecesWidth(pieces(b)))
+  // A set width is a minimum: a block always has room for its own text. The
+  // path block alone shrinks (its middle folders) when the bar is full.
+  const fixed = (b: Block) => b.items.includes('path') ? b.width : Math.max(b.width ?? 0, piecesWidth(pieces(b)))
   const room = columns - 2 - gaps
   const sized = shown.map(fixed)
   const used = sized.reduce<number>((n, w) => n + (w ?? 0), 0)

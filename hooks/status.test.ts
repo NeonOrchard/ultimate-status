@@ -57,6 +57,11 @@ describe('time until reset', () => {
     expect(until('2026-10-10T12:45:00Z', now)).toBe('45m')
   })
 
+  test('compact drops the spaces', () => {
+    expect(until('2026-10-10T13:01:00Z', now, true)).toBe('1h1m')
+    expect(until('2026-10-13T16:00:00Z', now, true)).toBe('3d4h')
+  })
+
   test('unknown or past shows nothing, so the percent shows instead', () => {
     expect(until(undefined, now)).toBe('')
     expect(until('2026-10-10T11:00:00Z', now)).toBe('')

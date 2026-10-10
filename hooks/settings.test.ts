@@ -52,9 +52,10 @@ describe('hover', () => {
 })
 
 describe('5h and 7d', () => {
-  test('time until reset by default; percent when the config sets it', () => {
-    expect(cleanSettings({})).toMatchObject({ fiveShow: 'time', weekShow: 'time' })
-    expect(cleanSettings({ fiveShow: 'percent', weekShow: 'percent' })).toMatchObject({ fiveShow: 'percent', weekShow: 'percent' })
-    expect(cleanSettings({ fiveShow: 'nonsense' }).fiveShow).toBe('time')
+  test('time and percent by default; the config can pick one, and compact spacing', () => {
+    expect(cleanSettings({})).toMatchObject({ fiveShow: 'both', weekShow: 'both', usageCompact: false })
+    expect(cleanSettings({ fiveShow: 'percent', weekShow: 'time', usageCompact: true }))
+      .toMatchObject({ fiveShow: 'percent', weekShow: 'time', usageCompact: true })
+    expect(cleanSettings({ fiveShow: 'nonsense' }).fiveShow).toBe('both')
   })
 })

@@ -29,6 +29,7 @@ let ctxBar = DEFAULTS.ctxBar
 let icons = DEFAULTS.icons
 let fiveShow = DEFAULTS.fiveShow
 let weekShow = DEFAULTS.weekShow
+let usageCompact = DEFAULTS.usageCompact
 let hover = DEFAULTS.hover
 
 export function prettyModel(id: string): string {
@@ -80,16 +81,18 @@ export function splitPath(cwd: string, home: string): { label: string; path: str
   return out
 }
 
-// Time until a reset, short: `2h 13m`, `3d 4h`, `45m`; '' when unknown or past.
-export function until(resetsAt?: string, now = Date.now()): string {
+// Time until a reset, short: `2h 13m`, `3d 4h`, `45m` (`2h13m` compact); ''
+// when unknown or past.
+export function until(resetsAt?: string, now = Date.now(), compact = false): string {
   if (!resetsAt) return ''
   const ms = Date.parse(resetsAt) - now
   if (!(ms > 0)) return ''
   const m = Math.ceil(ms / 60000)
   const d = Math.floor(m / 1440)
   const h = Math.floor((m % 1440) / 60)
-  if (d > 0) return `${d}d ${h}h`
-  return h > 0 ? `${h}h ${m % 60}m` : `${m}m`
+  const sp = compact ? '' : ' '
+  if (d > 0) return `${d}d${sp}${h}h`
+  return h > 0 ? `${h}h${sp}${m % 60}m` : `${m}m`
 }
 
 function left(resetsAt?: string): string {
@@ -220,6 +223,22 @@ function toUsage(ctx: { percent?: number }, limits: readonly { kind: string; per
 // pane is a Claude one.
 type Bar = Awaited<ReturnType<typeof gather>>
 
+// A usage window: its label, then the time until it resets and/or the percent
+// left (as set), the percent colored by how much is left. `5h 3m 95%`, or
+// compact `5h3m 95%`. With no reset time known yet, the percent shows.
+function usageItem(label: string, labelFg: string, timeFg: string, used: number | undefined, resets: string | undefined, show: string): Piece[] {
+  const t = show !== 'percent' ? until(resets, Date.now(), usageCompact) : ''
+  const out: Piece[] = [{ fg: labelFg, text: label }]
+  if (t) out.push({ fg: timeFg, text: (usageCompact ? '' : ' ') + t })
+  if (show !== 'time' || !t) out.push({ fg: pctColor(used), text: ` ${leftPct(used)}` })
+  return out
+}
+const pctColor = (used?: number) => {
+  if (used === undefined) return C.dim
+  const leftover = 100 - used
+  return leftover >= 50 ? C.usageGood : leftover >= 20 ? C.usageWarn : C.usageLow
+}
+
 // What each item shows; the path shrinks its middle folders to fit `max`.
 // A piece's range makes it clickable: the model menu, or a folder's.
 function itemContent(d: Bar, id: ItemId, max?: number): Piece[] {
@@ -270,12 +289,10 @@ function itemContent(d: Bar, id: ItemId, max?: number): Piece[] {
         { fg: C.ctxValue, text: ` ${pct(d.ctx)}` },
       ].filter(p => p.text)
     }
-    // Percent left, or (if set) the time until the window resets; the
-    // percent when the reset time isn't known yet.
     case 'five':
-      return [{ fg: C.fiveLabel, text: '5h ' }, { fg: C.fiveValue, text: (fiveShow === 'time' && until(d.u.fiveResets)) || leftPct(d.u.five) }]
+      return usageItem('5h', C.fiveLabel, C.fiveValue, d.u.five, d.u.fiveResets, fiveShow)
     case 'week':
-      return [{ fg: C.weekLabel, text: '7d ' }, { fg: C.weekValue, text: (weekShow === 'time' && until(d.u.weekResets)) || leftPct(d.u.week) }]
+      return usageItem('7d', C.weekLabel, C.weekValue, d.u.week, d.u.weekResets, weekShow)
   }
 }
 
@@ -377,6 +394,7 @@ async function useSettings($: EngineInterface) {
   icons = s.icons
   fiveShow = s.fiveShow
   weekShow = s.weekShow
+  usageCompact = s.usageCompact
   hover = s.hover
   if (!unlocked && cached && cached.mtime !== applied) {
     applied = cached.mtime
@@ -386,13 +404,14 @@ async function useSettings($: EngineInterface) {
 
 // Writes the bar and colors into the file, keeping its other keys; a key set
 // to `undefined` is taken out. A file that isn't valid JSON is left alone.
-export async function saveSettings($: EngineInterface, next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean; fiveShow?: string; weekShow?: string; hover?: string }) {
+export async function saveSettings($: EngineInterface, next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean; fiveShow?: string; weekShow?: string; usageCompact?: boolean; hover?: string }) {
   if ('bar' in next) bar = next.bar ?? DEFAULT_BAR
   if ('colors' in next) C = next.colors ?? DEFAULT_COLORS
   if ('ctxBar' in next) ctxBar = next.ctxBar ?? DEFAULTS.ctxBar
   if ('icons' in next) icons = next.icons ?? DEFAULTS.icons
   if ('fiveShow' in next) fiveShow = next.fiveShow ?? DEFAULTS.fiveShow
   if ('weekShow' in next) weekShow = next.weekShow ?? DEFAULTS.weekShow
+  if ('usageCompact' in next) usageCompact = next.usageCompact ?? DEFAULTS.usageCompact
   if ('hover' in next) hover = next.hover ?? DEFAULTS.hover
   try {
     const path = await settingsPath($)
@@ -407,6 +426,7 @@ export async function saveSettings($: EngineInterface, next: { bar?: BarConfig; 
     }
     // A boolean: false must be kept, so it isn't dropped like an empty value.
     if ('icons' in next) o.icons = next.icons ?? DEFAULTS.icons
+    if ('usageCompact' in next) o.usageCompact = next.usageCompact ?? DEFAULTS.usageCompact
     // Blocks replace the older layout key.
     if ('bar' in next) delete o.layout
     await $.fs.write(path, JSON.stringify(o, null, 2) + '\n')
@@ -693,6 +713,7 @@ export const register: Register = on => {
     icons = s.icons
     fiveShow = s.fiveShow
     weekShow = s.weekShow
+    usageCompact = s.usageCompact
     hover = s.hover
     // Before the settings file, a dragged layout lived in the mod store.
     const stored = await $.store.get('layout')
@@ -750,6 +771,7 @@ export const register: Register = on => {
       icons,
       fiveShow,
       weekShow,
+      usageCompact,
       hover,
       picking: await read($, pick),
       shownFlavor: await read($, flavor),

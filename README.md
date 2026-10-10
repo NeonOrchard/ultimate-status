@@ -20,7 +20,7 @@ Each piece of data is an **item**: Model, Speed, Path, Git branch, Context, 5h u
 - **Context**: an icon, a bar and a percent. Pick its style: **Progress** (a rounded Nerd Font bar, the default with icons on), **Line** `━━━━` (thin, any font, the default with icons off) or **Shade** `█░`.
 - **Icons** (on by default): Nerd Font icons for context `󰧑` and the path `󰉋`. Off shows `ctx` and no folder icon.
 - **Nerd Font prompt**: the first time it loads without a Nerd Font, it offers to install AtkynsonMono Nerd Font from its official source (Homebrew on macOS, else the Nerd Fonts download page). **No** turns icons off. The font is never bundled.
-- **5h** and **7d**: the time until each usage window resets (or, set in config, the percent left), like `5h 2h 13m` and `7d 3d 4h`.
+- **5h** and **7d**: the time until each usage window resets and the percent left, like `5h 3m 95%` (or `5h3m 95%` compact). The percent turns green, yellow or red as it runs low. Config can show just one of the two.
 
 <br>
 
@@ -78,7 +78,8 @@ The panel saves to `ultimate-status.json` in your Claude config folder (`~/.clau
 - `bar`: the blocks, in order. Each has `side`, `items`, `divider`, `joiner`, `resizable` and an optional `width`.
 - `colors`: any of `dim`, `info`, `model`, `speed`, `path` (a list), `branch`, `ctxLabel`, `ctxValue`, `fiveLabel`, `fiveValue`, `weekLabel`, `weekValue`, as `#rrggbb` or `ansi:0` to `ansi:15` (your terminal theme's colors).
 - `hover`: `complement` (the default, the opposite color) or `brighter`.
-- `fiveShow`, `weekShow`: `time` (the default, time until the window resets) or `percent` (percent left).
+- `fiveShow`, `weekShow`: `both` (the default), `time` or `percent`.
+- `usageCompact`: `true` drops the spaces: `5h3m 95%`.
 - `ctxBar`: `progress`, `line` or `shade`.
 - `icons`: `true` or `false`.
 - `pathMax`: optional cap in characters. Left out (the default), the path shrinks only when the bar runs out of room.
