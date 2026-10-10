@@ -705,6 +705,12 @@ export const register: Register = on => {
       description: 'Unlock the top bar to drag its blocks and dividers, or lock it again',
       argumentHint: 'config | unlock | lock | reset | version',
     })
+    // A short alias: /us config, /us version, ...
+    await $.command.register({
+      name: 'us',
+      description: 'Unlock the top bar to drag its blocks and dividers, or lock it again',
+      argumentHint: 'config | unlock | lock | reset | version',
+    })
     const s = await loadSettings($)
     applied = cached?.mtime
     C = s.colors
@@ -727,7 +733,7 @@ export const register: Register = on => {
     return result
   })
 
-  on('command.run', { command: 'ultimate-status' }, async ($, e) => {
+  on('command.run', { command: ['ultimate-status', 'us'] }, async ($, e) => {
     const arg = e.args.trim().toLowerCase()
     if (arg === 'version') return { text: `ultimate-status ${await version($)}` }
     if (arg === 'config' || arg === '') {

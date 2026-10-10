@@ -328,30 +328,26 @@ export function panel(ctx: PanelContext): RenderElement {
     </Box>
   )
 
-  // Live preview: the bar as it draws now, updated with every change.
-  const previewSide = (side: Side) => {
-    const list = ctx.preview.filter(b => b.side === side)
-    return (
-      <Box key={`pv-${side}`}>
-        {list.map((b, i) => (
-          <Box key={`pv-${side}-${i}`}>
-            {(side === 'right' || i > 0) && (
-              <Text color={inkColor(colors.dim)}>{(side === 'right' ? b : list[i - 1]!).divider ? `  ${(side === 'right' ? b : list[i - 1]!).divider}  ` : '  '}</Text>
-            )}
-            {b.pieces.map((p, j) => <Text key={`pv-${side}-${i}-${j}`} color={inkColor(p.fg)}>{p.text}</Text>)}
-          </Box>
-        ))}
-      </Box>
-    )
-  }
+  // Live preview: the bar as it draws now, updated with every change. One
+  // line that cuts off at the panel's edge, so a narrow panel never wraps it.
+  const gapText = (divider: string) => (divider ? `  ${divider}  ` : '  ')
+  const previewRuns: { fg: string; text: string }[] = []
+  const leftBlocks = ctx.preview.filter(b => b.side === 'left')
+  const rightBlocks = ctx.preview.filter(b => b.side === 'right')
+  leftBlocks.forEach((b, i) => {
+    if (i > 0) previewRuns.push({ fg: colors.dim, text: gapText(leftBlocks[i - 1]!.divider) })
+    previewRuns.push(...b.pieces)
+  })
+  rightBlocks.forEach(b => {
+    previewRuns.push({ fg: colors.dim, text: gapText(b.divider || '│') })
+    previewRuns.push(...b.pieces)
+  })
   const preview = (
     <Box key="preview" flexDirection="column" borderStyle="round" borderColor={ui.note} paddingX={1} marginTop={1}>
       <Text color={ui.note}>Preview</Text>
-      <Box justifyContent="space-between">
-        {previewSide('left')}
-        <Box flexGrow={1} />
-        {previewSide('right')}
-      </Box>
+      <Text wrap="truncate-end">
+        {previewRuns.map((r, i) => <Text key={`pv-${i}`} color={inkColor(r.fg)}>{r.text}</Text>)}
+      </Text>
     </Box>
   )
 

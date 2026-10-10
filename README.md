@@ -49,6 +49,7 @@ Keyboard only works too: Tab or ↑↓ moves, Enter acts. An open dropdown keeps
 - `/ultimate-status lock`: done. Clicks open the menus again.
 - `/ultimate-status reset`: back to the first layout.
 - `/ultimate-status version`: shows the installed version.
+- `/us` works as a short name for all of these, like `/us config`.
 
 Colors start as [Catppuccin Macchiato](https://catppuccin.com).
 
