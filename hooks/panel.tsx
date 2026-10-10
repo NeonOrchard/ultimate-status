@@ -75,8 +75,9 @@ export type PanelContext = {
   fiveShow: string
   weekShow: string
   usageCompact: boolean
+  usageLabels: boolean
   hover: string
-  save: (next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean; fiveShow?: string; weekShow?: string; usageCompact?: boolean; hover?: string }) => Promise<void>
+  save: (next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean; fiveShow?: string; weekShow?: string; usageCompact?: boolean; usageLabels?: boolean; hover?: string }) => Promise<void>
 }
 
 type El = (props: Record<string, unknown>, ...children: unknown[]) => RenderElement
@@ -242,7 +243,7 @@ export function panel(ctx: PanelContext): RenderElement {
   )
 
   // --- Display tab: how items look.
-  const displayChanged = (['ctxBar', 'icons', 'fiveShow', 'weekShow', 'usageCompact', 'hover'] as const).filter(k => ctx[k] !== DEFAULTS[k]).length
+  const displayChanged = (['ctxBar', 'icons', 'fiveShow', 'weekShow', 'usageCompact', 'usageLabels', 'hover'] as const).filter(k => ctx[k] !== DEFAULTS[k]).length
   const usage = Object.entries(USAGE_SHOW).map(([value, label]) => ({ value, label }))
   const displayTab = (
     <Box key="page-display" flexDirection="column">
@@ -256,6 +257,9 @@ export function panel(ctx: PanelContext): RenderElement {
             v => ctx.save({ icons: v === 'on' })))}
         {row('five-show', `${itemIcon('five', ctx.icons)} 5h shows`, cycle('fiveshow', ctx.fiveShow, usage, v => ctx.save({ fiveShow: v })))}
         {row('week-show', `${itemIcon('week', ctx.icons)} 7d shows`, cycle('weekshow', ctx.weekShow, usage, v => ctx.save({ weekShow: v })))}
+        {row('usage-labels', '5h / 7d labels',
+          cycle('usagelabels', ctx.usageLabels ? 'show' : 'hide', [{ value: 'show', label: 'Show  7d 22h 37m 69%' }, { value: 'hide', label: 'Hide  22h 37m 69%' }],
+            v => ctx.save({ usageLabels: v === 'show' })))}
         {row('usage-gap', 'Time spacing',
           cycle('usagegap', ctx.usageCompact ? 'compact' : 'normal', [{ value: 'normal', label: '5h 3m 95%' }, { value: 'compact', label: '5h3m 95%' }],
             v => ctx.save({ usageCompact: v === 'compact' })))}
@@ -263,7 +267,7 @@ export function panel(ctx: PanelContext): RenderElement {
           cycle('hoverstyle', ctx.hover, Object.entries(HOVER_STYLES).map(([value, label]) => ({ value, label })), v => ctx.save({ hover: v })))}
       </Box>
       {status('st-display', displayChanged, 'display settings', () =>
-        ctx.save({ ctxBar: DEFAULTS.ctxBar, icons: DEFAULTS.icons, fiveShow: DEFAULTS.fiveShow, weekShow: DEFAULTS.weekShow, usageCompact: DEFAULTS.usageCompact, hover: DEFAULTS.hover }))}
+        ctx.save({ ctxBar: DEFAULTS.ctxBar, icons: DEFAULTS.icons, fiveShow: DEFAULTS.fiveShow, weekShow: DEFAULTS.weekShow, usageCompact: DEFAULTS.usageCompact, usageLabels: DEFAULTS.usageLabels, hover: DEFAULTS.hover }))}
     </Box>
   )
 

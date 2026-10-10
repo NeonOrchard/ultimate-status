@@ -30,6 +30,7 @@ let icons = DEFAULTS.icons
 let fiveShow = DEFAULTS.fiveShow
 let weekShow = DEFAULTS.weekShow
 let usageCompact = DEFAULTS.usageCompact
+let usageLabels = DEFAULTS.usageLabels
 let hover = DEFAULTS.hover
 
 export function prettyModel(id: string): string {
@@ -228,9 +229,10 @@ type Bar = Awaited<ReturnType<typeof gather>>
 // compact `5h3m 95%`. With no reset time known yet, the percent shows.
 function usageItem(label: string, labelFg: string, timeFg: string, used: number | undefined, resets: string | undefined, show: string): Piece[] {
   const t = show !== 'percent' ? until(resets, Date.now(), usageCompact) : ''
-  const out: Piece[] = [{ fg: labelFg, text: label }]
-  if (t) out.push({ fg: timeFg, text: (usageCompact ? '' : ' ') + t })
-  if (show !== 'time' || !t) out.push({ fg: pctColor(used), text: ` ${leftPct(used)}` })
+  // Labels hidden: just the time and percent, `22h 37m 69%`.
+  const out: Piece[] = usageLabels ? [{ fg: labelFg, text: label }] : []
+  if (t) out.push({ fg: timeFg, text: (usageLabels && !usageCompact ? ' ' : '') + t })
+  if (show !== 'time' || !t) out.push({ fg: pctColor(used), text: `${out.length ? ' ' : ''}${leftPct(used)}` })
   return out
 }
 const pctColor = (used?: number) => {
@@ -395,6 +397,7 @@ async function useSettings($: EngineInterface) {
   fiveShow = s.fiveShow
   weekShow = s.weekShow
   usageCompact = s.usageCompact
+  usageLabels = s.usageLabels
   hover = s.hover
   if (!unlocked && cached && cached.mtime !== applied) {
     applied = cached.mtime
@@ -404,7 +407,7 @@ async function useSettings($: EngineInterface) {
 
 // Writes the bar and colors into the file, keeping its other keys; a key set
 // to `undefined` is taken out. A file that isn't valid JSON is left alone.
-export async function saveSettings($: EngineInterface, next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean; fiveShow?: string; weekShow?: string; usageCompact?: boolean; hover?: string }) {
+export async function saveSettings($: EngineInterface, next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean; fiveShow?: string; weekShow?: string; usageCompact?: boolean; usageLabels?: boolean; hover?: string }) {
   if ('bar' in next) bar = next.bar ?? DEFAULT_BAR
   if ('colors' in next) C = next.colors ?? DEFAULT_COLORS
   if ('ctxBar' in next) ctxBar = next.ctxBar ?? DEFAULTS.ctxBar
@@ -412,6 +415,7 @@ export async function saveSettings($: EngineInterface, next: { bar?: BarConfig; 
   if ('fiveShow' in next) fiveShow = next.fiveShow ?? DEFAULTS.fiveShow
   if ('weekShow' in next) weekShow = next.weekShow ?? DEFAULTS.weekShow
   if ('usageCompact' in next) usageCompact = next.usageCompact ?? DEFAULTS.usageCompact
+  if ('usageLabels' in next) usageLabels = next.usageLabels ?? DEFAULTS.usageLabels
   if ('hover' in next) hover = next.hover ?? DEFAULTS.hover
   try {
     const path = await settingsPath($)
@@ -427,6 +431,7 @@ export async function saveSettings($: EngineInterface, next: { bar?: BarConfig; 
     // A boolean: false must be kept, so it isn't dropped like an empty value.
     if ('icons' in next) o.icons = next.icons ?? DEFAULTS.icons
     if ('usageCompact' in next) o.usageCompact = next.usageCompact ?? DEFAULTS.usageCompact
+    if ('usageLabels' in next) o.usageLabels = next.usageLabels ?? DEFAULTS.usageLabels
     // Blocks replace the older layout key.
     if ('bar' in next) delete o.layout
     await $.fs.write(path, JSON.stringify(o, null, 2) + '\n')
@@ -720,6 +725,7 @@ export const register: Register = on => {
     fiveShow = s.fiveShow
     weekShow = s.weekShow
     usageCompact = s.usageCompact
+    usageLabels = s.usageLabels
     hover = s.hover
     // Before the settings file, a dragged layout lived in the mod store.
     const stored = await $.store.get('layout')
@@ -778,6 +784,7 @@ export const register: Register = on => {
       fiveShow,
       weekShow,
       usageCompact,
+      usageLabels,
       hover,
       picking: await read($, pick),
       shownFlavor: await read($, flavor),

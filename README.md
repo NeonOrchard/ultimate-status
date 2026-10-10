@@ -81,6 +81,7 @@ The panel saves to `ultimate-status.json` in your Claude config folder (`~/.clau
 - `hover`: `complement` (the default, the opposite color) or `brighter`.
 - `fiveShow`, `weekShow`: `both` (the default), `time` or `percent`.
 - `usageCompact`: `true` drops the spaces: `5h3m 95%`.
+- `usageLabels`: `false` hides the `5h` and `7d` labels: `22h 37m 69%`.
 - `ctxBar`: `progress`, `line` or `shade`.
 - `icons`: `true` or `false`.
 - `pathMax`: optional cap in characters. Left out (the default), the path shrinks only when the bar runs out of room.
