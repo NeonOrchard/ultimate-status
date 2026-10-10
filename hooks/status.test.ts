@@ -24,7 +24,9 @@ describe('ultimate-status', () => {
 
 describe('short path', () => {
   test('long paths shrink middle folders to one letter', () => {
-    const d = shortenPath(splitPath('/Users/me/WorkSpace/Projects/Something/MacForce', '/Users/me'))
+    expect(shortenPath(splitPath('/Users/me/WorkSpace/Projects/Something/MacForce', '/Users/me')).map(x => x.label))
+      .toEqual(['~', 'WorkSpace', 'Projects', 'Something', 'MacForce'])
+    const d = shortenPath(splitPath('/Users/me/WorkSpace/Projects/Something/MacForce', '/Users/me'), 28)
     expect(d.map(x => x.label)).toEqual(['~', 'W', 'P', 'S', 'MacForce'])
     expect(d[2]?.path).toBe('/Users/me/WorkSpace/Projects')
   })

@@ -56,7 +56,7 @@ export const CTX_BARS: Record<string, { name: string; full: string; empty: strin
   // Drawn cap by cap in itemContent; full/empty here are the middle pieces.
   progress: { name: 'Progress (Nerd Font)', full: '\uee04', empty: '\uee01', preview: '\uee03\uee04\uee04\uee01\uee01\uee02' },
 }
-export const DEFAULTS: Settings = { colors: DEFAULT_COLORS, pathMax: 28, ctxBar: 'line', icons: true }
+export const DEFAULTS: Settings = { colors: DEFAULT_COLORS, pathMax: 0, ctxBar: 'progress', icons: true }
 
 // A color is a hex string, or `ansi:0` to `ansi:15`: one of the terminal
 // theme's own 16 colors, so it follows whatever theme the terminal has.
@@ -95,6 +95,7 @@ export function cleanSettings(v: unknown): Settings {
     if (isHex(given[k])) (colors as Record<string, unknown>)[k] = given[k]
   }
   if (Array.isArray(given.path) && given.path.length > 0 && given.path.every(isHex)) colors.path = given.path
+  // 0 (the default) means no cap: the path shrinks only when the bar is full.
   const pathMax = typeof o.pathMax === 'number' && o.pathMax >= 8 && o.pathMax <= 200 ? Math.round(o.pathMax) : DEFAULTS.pathMax
   const icons = typeof o.icons === 'boolean' ? o.icons : DEFAULTS.icons
   // Not picked yet: the Nerd Font progress bar with icons on, the plain line without.

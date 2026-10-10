@@ -74,7 +74,7 @@ The panel saves to `ultimate-status.json` in your Claude config folder (`~/.clau
 - `colors`: any of `dim`, `info`, `model`, `speed`, `path` (a list), `branch`, `ctxLabel`, `ctxValue`, `fiveLabel`, `fiveValue`, `weekLabel`, `weekValue`, as `#rrggbb` or `ansi:0` to `ansi:15` (your terminal theme's colors).
 - `ctxBar`: `progress`, `line` or `shade`.
 - `icons`: `true` or `false`.
-- `pathMax`: outside tmux, the path shrinks past this many characters.
+- `pathMax`: optional cap in characters. Left out (the default), the path shrinks only when the bar runs out of room.
 - An older `layout` key is still read, and becomes blocks.
 
 <br>

@@ -36,7 +36,8 @@ export function prettyModel(id: string): string {
   return m[3] ? `${name} ${m[2]}.${m[3]}` : `${name} ${m[2]}`
 }
 
-export function shortenPath(dirs: { label: string; path: string }[], max = 28) {
+// Middle folders shrink to one letter only past `max` columns; no max, no shrinking.
+export function shortenPath(dirs: { label: string; path: string }[], max = Infinity) {
   const total = dirs.reduce((n, d) => n + d.label.length + 1, 0)
   if (total <= max) return dirs
   return dirs.map((d, i) =>
@@ -191,7 +192,8 @@ function itemContent(d: Bar, id: ItemId, max?: number): Piece[] {
     case 'speed':
       return [{ fg: C.speed, text: `⚡ ${d.speed}`, range: 'model' }]
     case 'path': {
-      const dirs = shortenPath(d.dirs, max ?? pathMax)
+      // No room given: the whole path, unless the settings file sets a pathMax.
+      const dirs = shortenPath(d.dirs, max ?? (pathMax || Infinity))
       const sep = pathSep(d.dirs)
       // The draw itself passes the room it has; its folders back the click menus.
       if (max !== undefined) drawnDirs = dirs
