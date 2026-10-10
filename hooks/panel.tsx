@@ -56,7 +56,8 @@ export type PanelContext = {
   focus: (key: string) => void
   toast: (text: string) => void
   ctxBar: string
-  save: (next: { bar?: BarConfig; colors?: Colors; ctxBar?: string }) => Promise<void>
+  icons: boolean
+  save: (next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean }) => Promise<void>
 }
 
 type El = (props: Record<string, unknown>, ...children: unknown[]) => RenderElement
@@ -188,8 +189,11 @@ export function panel(ctx: PanelContext): RenderElement {
       </Box>
       <Box flexDirection="column" marginTop={1}>
         {row('ctx-style', 'Context bar',
-          dropdown('ctxbar', ctx.ctxBar, Object.entries(CTX_BARS).map(([id, st]) => ({ value: id, label: `${st.name}  ${st.full.repeat(4)}${st.empty.repeat(4)}` })),
+          dropdown('ctxbar', ctx.ctxBar, Object.entries(CTX_BARS).map(([id, st]) => ({ value: id, label: `${st.name}  ${st.preview ?? st.full.repeat(4) + st.empty.repeat(4)}` })),
             v => ctx.save({ ctxBar: v })))}
+        {row('icons', 'Icons',
+          dropdown('icons', ctx.icons ? 'on' : 'off', [{ value: 'on', label: 'On  󰧑 (Nerd Font)' }, { value: 'off', label: 'Off  ctx' }],
+            v => ctx.save({ icons: v === 'on' })))}
       </Box>
     </Box>
   )

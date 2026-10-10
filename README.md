@@ -17,7 +17,9 @@ Each piece of data is an **item**: Model, Speed, Path, Git branch, Context, 5h u
   - Each folder has its own color.
   - Click a folder for **New tab** or **Tab + Claude**: a tmux tab inside tmux, a Warp tab in Warp, an iTerm2 tab in iTerm2.
   - Middle folders shrink to one letter only when there is no room.
-- **Context**: a bar and a percent. Pick its style: Line `━━━━` (the default, looks right in any font), Blocks, Shade or Dots.
+- **Context**: an icon, a bar and a percent. Pick its style: **Progress** (a rounded Nerd Font bar, the default with icons on), **Line** `━━━━` (thin, any font, the default with icons off) or **Shade** `█░`.
+- **Icons** (on by default): Nerd Font icons for context `󰧑` and the path `󰉋`. Off shows `ctx` and no folder icon.
+- **Nerd Font prompt**: the first time it loads without a Nerd Font, it offers to install AtkynsonMono Nerd Font from its official source (Homebrew on macOS, else the Nerd Fonts download page). **No** turns icons off. The font is never bundled.
 - **5h** and **7d**: how much usage you have left.
 
 <br>
@@ -70,7 +72,8 @@ The panel saves to `ultimate-status.json` in your Claude config folder (`~/.clau
 
 - `bar`: the blocks, in order. Each has `side`, `items`, `divider`, `joiner`, `resizable` and an optional `width`.
 - `colors`: any of `dim`, `info`, `model`, `speed`, `path` (a list), `branch`, `ctxLabel`, `ctxValue`, `fiveLabel`, `fiveValue`, `weekLabel`, `weekValue`, as `#rrggbb` or `ansi:0` to `ansi:15` (your terminal theme's colors).
-- `ctxBar`: `line`, `blocks`, `shade` or `dots`.
+- `ctxBar`: `progress`, `line` or `shade`.
+- `icons`: `true` or `false`.
 - `pathMax`: outside tmux, the path shrinks past this many characters.
 - An older `layout` key is still read, and becomes blocks.
 

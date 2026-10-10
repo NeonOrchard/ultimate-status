@@ -28,6 +28,8 @@ export type Settings = {
   pathMax: number
   // How the context bar is drawn; see CTX_BARS.
   ctxBar: string
+  // Nerd Font icons for labels (󰧑 for context); off shows the words instead.
+  icons: boolean
 }
 
 // Catppuccin Macchiato. Left side cool, right side warm.
@@ -47,13 +49,14 @@ export const DEFAULT_COLORS: Colors = {
 }
 // Context bar styles: the filled and empty glyph. `line` is one glyph in two
 // colors, so no font can draw gaps or overlaps into it.
-export const CTX_BARS: Record<string, { name: string; full: string; empty: string }> = {
+export const CTX_BARS: Record<string, { name: string; full: string; empty: string; preview?: string }> = {
   line: { name: 'Line', full: '━', empty: '━' },
-  blocks: { name: 'Blocks', full: '▰', empty: '▱' },
   shade: { name: 'Shade', full: '█', empty: '░' },
-  dots: { name: 'Dots', full: '●', empty: '○' },
+  // Nerd Font progress glyphs (U+EE00-EE05): rounded ends, centered on the text.
+  // Drawn cap by cap in itemContent; full/empty here are the middle pieces.
+  progress: { name: 'Progress (Nerd Font)', full: '\uee04', empty: '\uee01', preview: '\uee03\uee04\uee04\uee01\uee01\uee02' },
 }
-export const DEFAULTS: Settings = { colors: DEFAULT_COLORS, pathMax: 28, ctxBar: 'line' }
+export const DEFAULTS: Settings = { colors: DEFAULT_COLORS, pathMax: 28, ctxBar: 'line', icons: true }
 
 // A color is a hex string, or `ansi:0` to `ansi:15`: one of the terminal
 // theme's own 16 colors, so it follows whatever theme the terminal has.
@@ -93,8 +96,10 @@ export function cleanSettings(v: unknown): Settings {
   }
   if (Array.isArray(given.path) && given.path.length > 0 && given.path.every(isHex)) colors.path = given.path
   const pathMax = typeof o.pathMax === 'number' && o.pathMax >= 8 && o.pathMax <= 200 ? Math.round(o.pathMax) : DEFAULTS.pathMax
-  const ctxBar = typeof o.ctxBar === 'string' && o.ctxBar in CTX_BARS ? o.ctxBar : DEFAULTS.ctxBar
-  const out: Settings = { colors, pathMax, ctxBar }
+  const icons = typeof o.icons === 'boolean' ? o.icons : DEFAULTS.icons
+  // Not picked yet: the Nerd Font progress bar with icons on, the plain line without.
+  const ctxBar = typeof o.ctxBar === 'string' && o.ctxBar in CTX_BARS ? o.ctxBar : icons ? 'progress' : 'line'
+  const out: Settings = { colors, pathMax, ctxBar, icons }
   if (o.bar && typeof o.bar === 'object') out.bar = cleanBar(o.bar)
   else if (o.layout && typeof o.layout === 'object') out.bar = fromLayout(o.layout)
   return out

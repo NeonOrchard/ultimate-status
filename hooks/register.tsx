@@ -10,7 +10,7 @@ import type { Colors, Settings } from './settings'
 
 // Ultimate Status: in tmux, rows under the tabs; elsewhere, a line above the chat box.
 //   left:  ◆ Model ⚡ Speed  │  ~ / WorkSpace / MacForce  │  ⎇ branch
-//   right: ctx ▰▰▱▱ 42%  │  5h 77%  ·  7d 60%
+//   right: 󰧑 ━━━━ 42%  │  5h 77%  ·  7d 60%
 // Click the model for model/speed choices, a folder for "New tab" /
 // "Tab + Claude". Hover any part for what it means.
 
@@ -26,6 +26,7 @@ const menu = atom({ plugin: 'ultimate-status', key: 'menu' } as const, null as s
 let C: Colors = DEFAULT_COLORS
 let pathMax = DEFAULTS.pathMax
 let ctxBar = DEFAULTS.ctxBar
+let icons = DEFAULTS.icons
 
 export function prettyModel(id: string): string {
   const m = /claude-([a-z]+)-(\d+)(?:-(\d+))?/i.exec(id)
@@ -194,7 +195,8 @@ function itemContent(d: Bar, id: ItemId, max?: number): Piece[] {
       const sep = pathSep(d.dirs)
       // The draw itself passes the room it has; its folders back the click menus.
       if (max !== undefined) drawnDirs = dirs
-      const out: Piece[] = []
+      // A folder icon marks it as a path (icons on only).
+      const out: Piece[] = icons ? [{ fg: C.path[0] ?? C.dim, text: '󰉋 ' }] : []
       dirs.forEach((dir, i) => {
         if (i > 0 && dirs[i - 1]?.label !== '/') out.push({ fg: C.dim, text: sep })
         out.push({ fg: C.path[i % C.path.length] ?? C.dim, text: dir.label, range: `d${i}` })
@@ -209,10 +211,23 @@ function itemContent(d: Bar, id: ItemId, max?: number): Piece[] {
       // Filled part in the value color, the rest dim: the line style is one
       // glyph in two colors.
       const style = CTX_BARS[ctxBar] ?? CTX_BARS.line!
+      let full = style.full.repeat(d.filled)
+      let empty = style.empty.repeat(10 - d.filled)
+      // The progress glyphs need a Nerd Font, so with icons off it draws as the line.
+      if (ctxBar === 'progress' && !icons) {
+        full = CTX_BARS.line!.full.repeat(d.filled)
+        empty = CTX_BARS.line!.empty.repeat(10 - d.filled)
+      } else if (ctxBar === 'progress') {
+        // Each of the 10 cells picks its left-end, middle or right-end glyph.
+        const cell = (i: number, on: boolean) =>
+          String.fromCharCode((on ? 0xee03 : 0xee00) + (i === 0 ? 0 : i === 9 ? 2 : 1))
+        full = Array.from({ length: d.filled }, (_, i) => cell(i, true)).join('')
+        empty = Array.from({ length: 10 - d.filled }, (_, i) => cell(i + d.filled, false)).join('')
+      }
       return [
-        { fg: C.ctxLabel, text: 'ctx ' },
-        { fg: C.ctxValue, text: style.full.repeat(d.filled) },
-        { fg: C.dim, text: style.empty.repeat(10 - d.filled) },
+        { fg: C.ctxLabel, text: icons ? '󰧑 ' : 'ctx ' },
+        { fg: C.ctxValue, text: full },
+        { fg: C.dim, text: empty },
         { fg: C.ctxValue, text: ` ${pct(d.ctx)}` },
       ].filter(p => p.text)
     }
@@ -317,6 +332,7 @@ async function useSettings($: EngineInterface) {
   C = s.colors
   pathMax = s.pathMax
   ctxBar = s.ctxBar
+  icons = s.icons
   if (!unlocked && cached && cached.mtime !== applied) {
     applied = cached.mtime
     if (s.bar) bar = s.bar
@@ -325,10 +341,11 @@ async function useSettings($: EngineInterface) {
 
 // Writes the bar and colors into the file, keeping its other keys; a key set
 // to `undefined` is taken out. A file that isn't valid JSON is left alone.
-export async function saveSettings($: EngineInterface, next: { bar?: BarConfig; colors?: Colors; ctxBar?: string }) {
+export async function saveSettings($: EngineInterface, next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean }) {
   if ('bar' in next) bar = next.bar ?? DEFAULT_BAR
   if ('colors' in next) C = next.colors ?? DEFAULT_COLORS
   if ('ctxBar' in next) ctxBar = next.ctxBar ?? DEFAULTS.ctxBar
+  if ('icons' in next) icons = next.icons ?? DEFAULTS.icons
   try {
     const path = await settingsPath($)
     const has = await $.fs.exists(path)
@@ -340,6 +357,8 @@ export async function saveSettings($: EngineInterface, next: { bar?: BarConfig; 
       if (next[k]) o[k] = next[k]
       else delete o[k]
     }
+    // A boolean: false must be kept, so it isn't dropped like an empty value.
+    if ('icons' in next) o.icons = next.icons ?? DEFAULTS.icons
     // Blocks replace the older layout key.
     if ('bar' in next) delete o.layout
     await $.fs.write(path, JSON.stringify(o, null, 2) + '\n')
@@ -428,10 +447,39 @@ export const CLICKS =
 
 const PANEL = 'ultimate-status-config'
 
+// Icons need a Nerd Font. The plugin never ships one: on first load it offers to
+// install AtkynsonMono Nerd Font from its official source (Homebrew on macOS, else
+// the Nerd Fonts release page), and "No" switches icons off.
+const FONT_CASK = 'font-atkynson-mono-nerd-font'
+const FONT_URL = 'https://github.com/ryanoasis/nerd-fonts/releases/latest/download/AtkinsonHyperlegibleMono.zip'
+
+// fc-list knows the context icon's code point, or a fonts folder holds a Nerd Font.
+// No tools to ask (Windows) counts as not installed; the prompt still shows once.
+async function hasNerdFont($: EngineInterface): Promise<boolean> {
+  const r = await $.process.run(['sh', '-c',
+    "fc-list ':charset=f09d1' family 2>/dev/null | head -1; ls ~/Library/Fonts /Library/Fonts ~/.local/share/fonts 2>/dev/null | grep -i -m1 nerd"],
+  { timeoutMs: 4000 }).catch(() => undefined)
+  return !!r?.stdout.trim()
+}
+
+async function installFont($: EngineInterface) {
+  const windows = (await $.env.get('OS')) === 'Windows_NT'
+  if (!windows && (await opener($)) === 'open') {
+    $.ui.toast('ultimate-status: installing AtkynsonMono Nerd Font with Homebrew...')
+    const r = await $.process.run(['sh', '-lc', `brew install --cask ${FONT_CASK}`], { timeoutMs: 300000 }).catch(() => undefined)
+    if (r?.exitCode === 0) {
+      $.ui.toast('ultimate-status: font installed. Pick "AtkynsonMono Nerd Font Mono" in your terminal\'s font settings.')
+      return
+    }
+  }
+  await $.process.run(windows ? ['cmd', '/c', 'start', '', FONT_URL] : [await opener($), FONT_URL]).catch(() => undefined)
+  $.ui.toast('ultimate-status: opened the Nerd Fonts download. Install the fonts, then pick "AtkynsonMono Nerd Font Mono" in your terminal.')
+}
+
 // Outside tmux the bar sits right under the chat box, in the hint line's spot, so the
 // band's [-] can't collapse it away; its menus and hover tips open in the band above.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function barParts($: EngineInterface, e: any, columns: number) {
+async function barParts($: EngineInterface, e: any, columns: number | string) {
   const { Box, Button, Text } = $.ui.resolve(e)
   const d = await gather($)
   const open = await read($, popup)
@@ -455,6 +503,16 @@ async function barParts($: EngineInterface, e: any, columns: number) {
         <Button key="pick-model" label="Model…" onPress={async () => { await close(); await $.command.run({ command: 'model' }) }} />
         <Button key="pick-speed" label={d.speed === 'Fast' ? 'Speed: Normal' : 'Speed: ⚡ Fast'} onPress={async () => { await close(); await $.command.run({ command: 'fast' }) }} />
         <Button key="close" label="✕" onPress={close} />
+      </Box>
+    )
+  } else if (open === 'font') {
+    const done = async () => { await $.store.set('fontAsked', true); await close() }
+    popupRow = (
+      <Box gap={2}>
+        <Text color={inkColor(C.info)}>Icons need a Nerd Font. Install AtkynsonMono Nerd Font?</Text>
+        <Button key="font-yes" label="Install" onPress={async () => { await done(); await installFont($) }} />
+        <Button key="font-no" label="No, use words" onPress={async () => { await done(); await saveSettings($, { icons: false }) }} />
+        <Button key="font-later" label="Later" onPress={close} />
       </Box>
     )
   } else if (open?.startsWith('dir:')) {
@@ -549,9 +607,12 @@ export const register: Register = on => {
     C = s.colors
     pathMax = s.pathMax
     ctxBar = s.ctxBar
+    icons = s.icons
     // Before the settings file, a dragged layout lived in the mod store.
     const stored = await $.store.get('layout')
     bar = s.bar ?? (stored ? fromLayout(stored) : DEFAULT_BAR)
+    // Ask once about a Nerd Font when icons are on and none seems installed.
+    if (icons && !(await $.store.get('fontAsked')) && !(await hasNerdFont($))) await update($, popup, () => 'font')
     try {
       const u = await $.session.usage()
       await update($, usage, () => toUsage(u.context, u.rateLimits))
@@ -593,6 +654,7 @@ export const register: Register = on => {
       bar,
       colors: C,
       ctxBar,
+      icons,
       picking: await read($, pick),
       shownFlavor: await read($, flavor),
       setPick: fn => { void update($, pick, fn) },
@@ -633,7 +695,17 @@ export const register: Register = on => {
       // The rows span the whole tmux window, not just Claude's split.
       const r = await $.process.run(['tmux', 'display', '-p', '-t', pane, '#{window_width}']).catch(() => undefined)
       await pushTmux($, pane, d, Number(r?.stdout.trim()) || e.viewport?.columns || 120)
-      return next(e)
+      // The font prompt is Claude's own row, so it shows inside tmux too.
+      if ((await read($, popup)) !== 'font') return next(e)
+      const { Box } = $.ui.resolve(e)
+      const { popupRow } = await barParts($, e, e.props.bodyColumns)
+      const below = await next(e)
+      return (
+        <Box flexDirection="column">
+          {below}
+          {popupRow}
+        </Box>
+      )
     }
     const { Box } = $.ui.resolve(e)
     const { popupRow, tipRows } = await barParts($, e, e.props.bodyColumns)
@@ -654,8 +726,11 @@ export const register: Register = on => {
     await useSettings($)
     if (await paneOf($)) return next(e)
     const { Box } = $.ui.resolve(e)
-    const { barRow } = await barParts($, e, (e.viewport?.columns ?? 120) - 1)
+    // "100%", not viewport.columns: that is the transcript's width, which a docked
+    // pane (the settings panel) narrows, while this row spans the whole terminal.
+    const { barRow } = await barParts($, e, '100%')
     const hint = await next(e)
+    // No width on this Box: the engine's own hint line can't sit under a sized Box.
     return (
       <Box flexDirection="column">
         {barRow}
