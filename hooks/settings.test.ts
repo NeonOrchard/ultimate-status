@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
-import { DEFAULTS, DEFAULT_COLORS, cleanSettings, inkColor, tmuxColor } from './settings'
+import { DEFAULTS, DEFAULT_COLORS, brighten, cleanSettings, inkColor, tmuxColor } from './settings'
 
 describe('settings', () => {
   test('a missing or broken file keeps the defaults', () => {
@@ -32,5 +32,13 @@ describe('settings', () => {
     ])
     expect(bar.blocks[0]?.width).toBe(12)
     expect(cleanSettings({}).bar).toBeUndefined()
+  })
+})
+
+describe('hover', () => {
+  test('a hovered item shows a brighter version of its own color', () => {
+    expect(brighten('#000000')).toBe('#808080')
+    expect(brighten('#c6a0f6')).toBe('#e3d0fb')
+    expect(brighten('ansi:3')).toBe('ansi:11')
   })
 })

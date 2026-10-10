@@ -18,8 +18,6 @@ export type Colors = {
   fiveValue: string
   weekLabel: string
   weekValue: string
-  // The soft background a hovered item gets.
-  hover: string
 }
 export type Settings = {
   // The blocks; absent until set, so the older layout in the mod's store
@@ -51,7 +49,6 @@ export const DEFAULT_COLORS: Colors = {
   fiveValue: '#eed49f', // yellow
   weekLabel: '#f5bde6', // pink
   weekValue: '#f4dbd6', // rosewater
-  hover: '#494d64', // surface1
 }
 // Context bar styles: the filled and empty glyph. `line` is one glyph in two
 // colors, so no font can draw gaps or overlaps into it.
@@ -77,6 +74,20 @@ export const ANSI_NAMES = [...ANSI, ...ANSI.map(n => `bright ${n}`)]
 export const tmuxColor = (c: string) => (c.startsWith('ansi:') ? `colour${c.slice(5)}` : c)
 // For Claude's own drawing (Ink names).
 const INK = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white']
+// A brighter version of a color, for hover: hex mixed halfway to white, a
+// terminal theme color swapped for its bright twin.
+export function brighten(c: string): string {
+  if (c.startsWith('ansi:')) {
+    const n = Number(c.slice(5))
+    return n < 8 ? `ansi:${n + 8}` : 'ansi:15'
+  }
+  const m = /^#([0-9a-f]{6})$/i.exec(c)
+  if (!m) return c
+  const v = parseInt(m[1]!, 16)
+  const mix = (x: number) => Math.round(x + (255 - x) * 0.5).toString(16).padStart(2, '0')
+  return `#${mix(v >> 16)}${mix((v >> 8) & 255)}${mix(v & 255)}`
+}
+
 export const inkColor = (c: string) => {
   if (!c.startsWith('ansi:')) return c
   const n = Number(c.slice(5))

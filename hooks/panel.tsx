@@ -20,7 +20,7 @@ const ITEM_COLORS: Record<ItemId, [string, string][]> = {
   five: [['fiveLabel', 'Label'], ['fiveValue', 'Value']],
   week: [['weekLabel', 'Label'], ['weekValue', 'Value'], ['info', '"left"']],
 }
-const OTHER_COLORS: [string, string][] = [['dim', 'Dividers and joiners'], ['info', 'Notes and tips'], ['hover', 'Hover highlight']]
+const OTHER_COLORS: [string, string][] = [['dim', 'Dividers and joiners'], ['info', 'Notes and tips']]
 
 const getColor = (c: Colors, key: string): string =>
   key.startsWith('path.') ? c.path[Number(key.slice(5))] ?? c.path[0] ?? c.dim : (c[key as keyof Omit<Colors, 'path'>] as string)

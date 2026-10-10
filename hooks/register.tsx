@@ -5,7 +5,7 @@ import type { Usage } from '../types'
 import { DEFAULT_BAR, blockPieces, fromLayout, move, piecesWidth, renderBar, resize } from './bar'
 import type { BarConfig, Geom, ItemId, Piece } from './bar'
 import { panel } from './panel'
-import { CTX_BARS, DEFAULTS, DEFAULT_COLORS, cleanSettings, inkColor, tmuxColor } from './settings'
+import { CTX_BARS, DEFAULTS, DEFAULT_COLORS, brighten, cleanSettings, inkColor, tmuxColor } from './settings'
 import type { Colors, Settings } from './settings'
 
 // Ultimate Status: in tmux, rows under the tabs; elsewhere, a line above the chat box.
@@ -572,7 +572,7 @@ async function barParts($: EngineInterface, e: any, columns: number | string) {
       // A Box, not a Text: Buttons can't sit inside an inline element.
       <Box key={`${b.id}-${id}`}>
         {ps.map((p, i) => {
-          const t = <Text key={`${id}${i}`} color={inkColor(p.fg)} hover={{ scope: id, backgroundColor: inkColor(C.hover) }}>{p.text}</Text>
+          const t = <Text key={`${id}${i}`} color={inkColor(p.fg)} hover={{ scope: id, color: inkColor(brighten(p.fg)) }}>{p.text}</Text>
           if (p.range === 'model') return <Button key={`${id}b${i}`} plain onPress={toggle('model')}>{t}</Button>
           if (p.range?.startsWith('d')) {
             const dir = dirs[Number(p.range.slice(1))]
