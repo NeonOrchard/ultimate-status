@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Usage } from '../types'
-import { DEFAULT_BAR, fromLayout, move, renderBar, resize } from './bar'
+import { DEFAULT_BAR, blockPieces, fromLayout, move, piecesWidth, renderBar, resize } from './bar'
 import type { BarConfig, Geom, ItemId, Piece } from './bar'
 import { panel } from './panel'
 import { CTX_BARS, DEFAULTS, DEFAULT_COLORS, cleanSettings, inkColor, tmuxColor } from './settings'
@@ -529,9 +529,20 @@ async function barParts($: EngineInterface, e: any, columns: number | string) {
 
   // The same blocks as the tmux bar, drawn by Claude: each item hovers for
   // its tip, and the model and folders click open their menus.
-  const dirs = shortenPath(d.dirs, pathMax)
+  // The path gets every column the rest of the bar leaves; its middle
+  // folders shrink only when the whole bar would not fit.
+  const FULL = 10_000
+  const shownBlocks = bar.blocks.filter(b => b.items.some(id => itemContent(d, id).length > 0))
+  const gapsWidth = shownBlocks.reduce((n, b, i) => n + (i === 0 && b.side === 'left' ? 0 : b.divider ? 5 : 2), 0)
+  const fullWidth = shownBlocks.reduce((n, b) => n + piecesWidth(blockPieces(b, (id, m) => itemContent(d, id, id === 'path' ? FULL : m), C.dim)), 0) + gapsWidth
+  const pathFull = piecesWidth(itemContent(d, 'path', FULL))
+  // A "100%" row spans the terminal; the viewport's width is that terminal's
+  // unless a docked pane narrows it, so the path may shrink a little early then.
+  const room = typeof columns === 'number' ? columns : (e.viewport?.columns as number | undefined) ?? 0
+  const pathRoom = !room || fullWidth <= room - 2 ? FULL : Math.max(8, pathFull - (fullWidth - (room - 2)))
+  const dirs = shortenPath(d.dirs, pathRoom)
   const drawItem = (b: { id: string }, id: ItemId) => {
-    const ps = itemContent(d, id, pathMax)
+    const ps = itemContent(d, id, pathRoom)
     return (
       // A Box, not a Text: Buttons can't sit inside an inline element.
       <Box key={`${b.id}-${id}`}>
