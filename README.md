@@ -12,7 +12,7 @@ A colorful, clickable status bar for Claude Code.
 
 Each piece of data is an **item**: Model, Speed, Path, Git branch, Context, 5h usage, 7d usage.
 
-- **Model** and **Speed**: click the model to open `/model`; click the speed to switch `/fast` on or off.
+- **Model** and **Speed**: click for a menu, **Model…** (opens `/model`) or the speed switch (`/fast`).
 - **Path**, like `~/WorkSpace/MacForce/` (or `E:\Code\app\` on Windows)
   - Each folder has its own color.
   - Click a folder above the current one: a new tab opens there and runs your Claude command (set it in config, like `claude --dangerously-skip-permissions --continue`).
