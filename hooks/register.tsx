@@ -30,6 +30,7 @@ let icons = DEFAULTS.icons
 let fiveShow = DEFAULTS.fiveShow
 let weekShow = DEFAULTS.weekShow
 let hover = DEFAULTS.hover
+let claudeCmd = DEFAULTS.claudeCmd
 
 export function prettyModel(id: string): string {
   const m = /claude-([a-z]+)-(\d+)(?:-(\d+))?/i.exec(id)
@@ -103,8 +104,9 @@ function left(resetsAt?: string): string {
 
 const q = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`
 
-// Opens a terminal tab in `dir`, with Claude in it if asked: Warp through its
-// warp:// links (a Tab Config runs `claude`), iTerm2 through AppleScript.
+// Opens a terminal tab in `dir`, with Claude in it if asked (the command set in
+// config, `claude` by default): Warp through its warp:// links (a Tab Config
+// runs the command), iTerm2 through AppleScript.
 async function openTab($: EngineInterface, dir: string, withClaude: boolean) {
   const term = await $.env.get('TERM_PROGRAM')
   const windows = (await $.env.get('OS')) === 'Windows_NT'
@@ -113,7 +115,7 @@ async function openTab($: EngineInterface, dir: string, withClaude: boolean) {
     if (withClaude) {
       const folder = await warpTabConfigs($, windows)
       const toml = `name = "Claude here"\ntitle = "Claude"\n\n[[panes]]\nid = "main"\ntype = "terminal"\n` +
-        `directory = ${JSON.stringify(dir)}\ncommands = ["claude"]\n`
+        `directory = ${JSON.stringify(dir)}\ncommands = [${JSON.stringify(claudeCmd)}]\n`
       const wrote = folder && (await $.fs.write(`${folder}/ultimate_status_claude.toml`, toml).then(() => true, () => false))
       if (wrote) uri = 'warp://tab_config/ultimate_status_claude'
       else $.ui.toast('ultimate-status: could not write a Warp Tab Config, so the tab opens without Claude.')
@@ -122,7 +124,7 @@ async function openTab($: EngineInterface, dir: string, withClaude: boolean) {
     if (r?.exitCode !== 0) $.ui.toast('ultimate-status: Warp did not open the tab.')
     return
   }
-  const cmd = `cd ${q(dir)}${withClaude ? ' && claude' : ''}`
+  const cmd = `cd ${q(dir)}${withClaude ? ` && ${claudeCmd}` : ''}`
   const r = await $.process.run([
     'osascript',
     '-e', 'on run argv',
@@ -137,6 +139,26 @@ async function openTab($: EngineInterface, dir: string, withClaude: boolean) {
   ]).catch(() => undefined)
   // Folder tabs need Warp, or iTerm2 on macOS; say so instead of failing silently.
   if (r?.exitCode !== 0) $.ui.toast('ultimate-status: opening a tab needs Warp, or iTerm2 on macOS.')
+}
+
+// Shows a folder in Finder, File Explorer, or the Linux file manager.
+async function openFolder($: EngineInterface, dir: string) {
+  const windows = (await $.env.get('OS')) === 'Windows_NT'
+  // Explorer exits 1 even when it opens the folder, so only a throw is a failure.
+  const r = await $.process.run(windows ? ['explorer.exe', dir] : [await opener($), dir]).catch(() => undefined)
+  if (!r) $.ui.toast('ultimate-status: could not open the folder.')
+}
+
+// Puts a folder's path on the clipboard.
+async function copyPath($: EngineInterface, dir: string) {
+  const windows = (await $.env.get('OS')) === 'Windows_NT'
+  const mac = !windows && (await opener($)) === 'open'
+  const tries = windows ? [['cmd', '/c', 'clip']] : mac ? [['pbcopy']] : [['wl-copy'], ['xclip', '-selection', 'clipboard']]
+  for (const argv of tries) {
+    const r = await $.process.run(argv, { stdin: dir }).catch(() => undefined)
+    if (r?.exitCode === 0) return $.ui.toast(`Copied ${dir}`)
+  }
+  $.ui.toast('ultimate-status: could not copy the path.')
 }
 
 // `open` on macOS, `xdg-open` elsewhere.
@@ -282,9 +304,15 @@ async function pushTmux($: EngineInterface, pane: string, d: Bar, columns: numbe
   const drawn = renderBar(bar, columns, unlocked, item, { dim: C.dim, handle: C.speed, tmux: tmuxColor })
   geom = drawn.geom
   const dirs = geom.length ? drawnDirs : []
+  // tmux runs on macOS or Linux: Finder and pbcopy, or their Linux stand-ins.
+  const mac = (await opener($)) === 'open'
   const opts: [string, string][] = [
     ['@ultimate_status', drawn.bar],
     ['@us_speed', d.speed === 'Fast' ? 'Speed: Normal' : 'Speed: ⚡ Fast'],
+    ['@us_claude', claudeCmd],
+    ['@us_dlast', String(dirs.length - 1)],
+    ['@us_open', mac ? 'open' : 'xdg-open'],
+    ['@us_copy', mac ? 'pbcopy' : 'wl-copy || xclip -selection clipboard'],
     ...dirs.map((dir, i): [string, string] => [`@us_d${i}`, dir.path]),
   ]
   const key = JSON.stringify(opts)
@@ -356,6 +384,7 @@ async function useSettings($: EngineInterface) {
   fiveShow = s.fiveShow
   weekShow = s.weekShow
   hover = s.hover
+  claudeCmd = s.claudeCmd
   if (!unlocked && cached && cached.mtime !== applied) {
     applied = cached.mtime
     if (s.bar) bar = s.bar
@@ -364,7 +393,7 @@ async function useSettings($: EngineInterface) {
 
 // Writes the bar and colors into the file, keeping its other keys; a key set
 // to `undefined` is taken out. A file that isn't valid JSON is left alone.
-export async function saveSettings($: EngineInterface, next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean; fiveShow?: string; weekShow?: string; hover?: string }) {
+export async function saveSettings($: EngineInterface, next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean; fiveShow?: string; weekShow?: string; hover?: string; claudeCmd?: string }) {
   if ('bar' in next) bar = next.bar ?? DEFAULT_BAR
   if ('colors' in next) C = next.colors ?? DEFAULT_COLORS
   if ('ctxBar' in next) ctxBar = next.ctxBar ?? DEFAULTS.ctxBar
@@ -372,13 +401,14 @@ export async function saveSettings($: EngineInterface, next: { bar?: BarConfig; 
   if ('fiveShow' in next) fiveShow = next.fiveShow ?? DEFAULTS.fiveShow
   if ('weekShow' in next) weekShow = next.weekShow ?? DEFAULTS.weekShow
   if ('hover' in next) hover = next.hover ?? DEFAULTS.hover
+  if ('claudeCmd' in next) claudeCmd = next.claudeCmd?.trim() || DEFAULTS.claudeCmd
   try {
     const path = await settingsPath($)
     const has = await $.fs.exists(path)
     const text = has ? ((await $.fs.read(path)) as string) : '{}'
     const o = JSON.parse(text.trim() || '{}')
     if (!o || typeof o !== 'object' || Array.isArray(o)) throw new Error('not an object')
-    for (const k of ['bar', 'colors', 'ctxBar', 'fiveShow', 'weekShow', 'hover'] as const) {
+    for (const k of ['bar', 'colors', 'ctxBar', 'fiveShow', 'weekShow', 'hover', 'claudeCmd'] as const) {
       if (!(k in next)) continue
       if (next[k]) o[k] = next[k]
       else delete o[k]
@@ -441,11 +471,20 @@ const TMUX_SETUP: ((pane: string) => string[])[] = [
 // tab bar does what tmux does by default. The menus act on the active pane,
 // the Claude one, since the rows only show there.
 const MAX_DIRS = 16
+// A folder above the current one starts Claude (the command set in config,
+// @us_claude) in a new tmux tab there; the current folder opens a menu.
+const launch = (i: number) => `run-shell -b "tmux new-window -c '#{@us_d${i}}' '#{@us_claude}'"`
 const folderMenu = (i: number) =>
   `  if -F '#{==:#{mouse_status_range},usd${i}}' {\n` +
-  `    display-menu -T '#[align=centre]#{@us_d${i}}' -x M -y S \\\n` +
-  `      'New tab' n { new-window -c '#{@us_d${i}}' } \\\n` +
-  `      'Tab + Claude' c { new-window -c '#{@us_d${i}}' claude }\n` +
+  `    if -F '#{==:${i},#{@us_dlast}}' {\n` +
+  `      display-menu -T '#[align=centre]#{@us_d${i}}' -x M -y S \\\n` +
+  `        'Open in Finder' o { run-shell -b "#{@us_open} '#{@us_d${i}}'" } \\\n` +
+  `        'Copy path' p { run-shell -b "printf %s '#{@us_d${i}}' | #{@us_copy}" } \\\n` +
+  `        'New tab' n { new-window -c '#{@us_d${i}}' } \\\n` +
+  `        'Tab + Claude' c { ${launch(i)} }\n` +
+  `    } {\n` +
+  `      ${launch(i)}\n` +
+  `    }\n` +
   `  }\n`
 // Unlocked, a press on a block or divider is noted instead, and so is every
 // drag step and the release; dragTick turns those into a move or a resize.
@@ -515,7 +554,7 @@ async function barParts($: EngineInterface, e: any, columns: number | string) {
   const tips: [ItemId, string][] = [
     ['model', `Model: ${d.model}. Click to change the model or the speed.`],
     ['speed', `Speed: ${d.speed}. Click to change the model or the speed.`],
-    ['path', `Folder: ${d.cwd}. Click any part to open a new iTerm tab there.`],
+    ['path', `Folder: ${d.cwd}. Click a folder above this one to start Claude there in a new tab; click this one for more.`],
     ['branch', `Git branch: ${d.branch || 'none'}. The branch this folder is on.`],
     ['ctx', `Context: ${pct(d.ctx)} of my working memory for this chat is used. When it fills up, older parts get summarized.`],
     ['five', `5-hour window: ${leftPct(d.u.five)} left of your usage limit for the current 5 hours.${left(d.u.fiveResets)}`],
@@ -523,15 +562,7 @@ async function barParts($: EngineInterface, e: any, columns: number | string) {
   ]
 
   let popupRow = null
-  if (open === 'model') {
-    popupRow = (
-      <Box gap={2}>
-        <Button key="pick-model" label="Model…" onPress={async () => { await close(); await $.command.run({ command: 'model' }) }} />
-        <Button key="pick-speed" label={d.speed === 'Fast' ? 'Speed: Normal' : 'Speed: ⚡ Fast'} onPress={async () => { await close(); await $.command.run({ command: 'fast' }) }} />
-        <Button key="close" label="✕" onPress={close} />
-      </Box>
-    )
-  } else if (open === 'font') {
+  if (open === 'font') {
     const done = async () => { await $.store.set('fontAsked', true); await close() }
     popupRow = (
       <Box gap={2}>
@@ -539,16 +570,6 @@ async function barParts($: EngineInterface, e: any, columns: number | string) {
         <Button key="font-yes" label="Install" onPress={async () => { await done(); await installFont($) }} />
         <Button key="font-no" label="No, use words" onPress={async () => { await done(); await saveSettings($, { icons: false }) }} />
         <Button key="font-later" label="Later" onPress={close} />
-      </Box>
-    )
-  } else if (open?.startsWith('dir:')) {
-    const dir = open.slice(4)
-    popupRow = (
-      <Box gap={2}>
-        <Text color={inkColor(C.info)}>{dir}</Text>
-        <Button key="tab" label="New tab" onPress={async () => { await close(); await openTab($, dir, false) }} />
-        <Button key="tab-claude" label="Tab + Claude" onPress={async () => { await close(); await openTab($, dir, true) }} />
-        <Button key="close" label="✕" onPress={close} />
       </Box>
     )
   }
@@ -569,6 +590,23 @@ async function barParts($: EngineInterface, e: any, columns: number | string) {
   const room = typeof columns === 'number' ? columns : (e.viewport?.columns as number | undefined) ?? knownColumns ?? 80
   const pathRoom = fullWidth <= room - 2 ? FULL : Math.max(8, pathFull - (fullWidth - (room - 2)))
   const dirs = shortenPath(d.dirs, pathRoom)
+  // A pop-up menu: a solid card floating just above the item it belongs to,
+  // painted over what is there without moving it.
+  const menu = (key: string, title: string | null, entries: [string, () => unknown][]) => (
+    <Box key={`menu-${key}`} position="absolute" bottom={1} left={0} flexDirection="column"
+      borderStyle="round" borderColor={inkColor(C.dim)} backgroundColor={inkColor(C.menu)} paddingX={1}>
+      {title && <Text color={inkColor(C.info)}>{title}</Text>}
+      {entries.map(([label, run], i) => (
+        <Button key={`${key}-${i}`} plain onPress={async () => { await close(); await run() }}>
+          <Text color={inkColor(C.model)} hover={{ scope: `${key}-${i}`, color: inkColor(hoverColor(C.model, hover)) }}>{label}</Text>
+        </Button>
+      ))}
+      <Button key={`${key}-close`} plain onPress={close}>
+        <Text color={inkColor(C.dim)}>Close</Text>
+      </Button>
+    </Box>
+  )
+  const windows = d.dirs[0]?.path.includes('\\') ?? false
   const drawItem = (b: { id: string }, id: ItemId) => {
     const ps = itemContent(d, id, pathRoom)
     return (
@@ -576,10 +614,37 @@ async function barParts($: EngineInterface, e: any, columns: number | string) {
       <Box key={`${b.id}-${id}`}>
         {ps.map((p, i) => {
           const t = <Text key={`${id}${i}`} color={inkColor(p.fg)} hover={{ scope: id, color: inkColor(hoverColor(p.fg, hover)) }}>{p.text}</Text>
-          if (p.range === 'model') return <Button key={`${id}b${i}`} plain onPress={toggle('model')}>{t}</Button>
+          if (p.range === 'model') {
+            return (
+              <Box key={`${id}m${i}`}>
+                <Button key={`${id}b${i}`} plain onPress={toggle('model')}>{t}</Button>
+                {open === 'model' && i === ps.findIndex(x => x.range === 'model') && menu('model', null, [
+                  ['Model…', () => $.command.run({ command: 'model' })],
+                  [d.speed === 'Fast' ? 'Speed: Normal' : 'Speed: ⚡ Fast', () => $.command.run({ command: 'fast' })],
+                ])}
+              </Box>
+            )
+          }
           if (p.range?.startsWith('d')) {
-            const dir = dirs[Number(p.range.slice(1))]
-            return dir ? <Button key={`${id}b${i}`} plain onPress={toggle(`dir:${dir.path}`)}>{t}</Button> : t
+            const n = Number(p.range.slice(1))
+            const dir = dirs[n]
+            if (!dir) return t
+            // A folder above this one: one click starts Claude in a new tab there.
+            if (n < dirs.length - 1) {
+              return <Button key={`${id}b${i}`} plain onPress={() => openTab($, dir.path, true)}>{t}</Button>
+            }
+            // This folder: a menu.
+            return (
+              <Box key={`${id}m${i}`}>
+                <Button key={`${id}b${i}`} plain onPress={toggle(`dir:${dir.path}`)}>{t}</Button>
+                {open === `dir:${dir.path}` && menu('dir', dir.path, [
+                  [windows ? 'Open in File Explorer' : 'Open in Finder', () => openFolder($, dir.path)],
+                  ['Copy path', () => copyPath($, dir.path)],
+                  ['New tab', () => openTab($, dir.path, false)],
+                  ['Tab + Claude', () => openTab($, dir.path, true)],
+                ])}
+              </Box>
+            )
           }
           return t
         })}
@@ -605,8 +670,10 @@ async function barParts($: EngineInterface, e: any, columns: number | string) {
   const leftBlocks = blocks.filter(b => b.side === 'left')
   const rightBlocks = blocks.filter(b => b.side === 'right')
 
+  // Hover tips: a solid card, so they stand apart from the chat.
   const tipRows = tips.map(([scope, text]) => (
-    <Box key={`tip-${scope}`} display="none" hover={{ scope, display: 'flex' }}>
+    <Box key={`tip-${scope}`} display="none" hover={{ scope, display: 'flex' }}
+      borderStyle="round" borderColor={inkColor(C.dim)} backgroundColor={inkColor(C.menu)} paddingX={1}>
       <Text color={inkColor(C.info)}>{text}</Text>
     </Box>
   ))
@@ -650,6 +717,7 @@ export const register: Register = on => {
     fiveShow = s.fiveShow
     weekShow = s.weekShow
     hover = s.hover
+    claudeCmd = s.claudeCmd
     // Before the settings file, a dragged layout lived in the mod store.
     const stored = await $.store.get('layout')
     bar = s.bar ?? (stored ? fromLayout(stored) : DEFAULT_BAR)
@@ -700,6 +768,7 @@ export const register: Register = on => {
       fiveShow,
       weekShow,
       hover,
+      claudeCmd,
       picking: await read($, pick),
       shownFlavor: await read($, flavor),
       setPick: fn => { void update($, pick, fn) },

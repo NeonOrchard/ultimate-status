@@ -18,6 +18,8 @@ export type Colors = {
   fiveValue: string
   weekLabel: string
   weekValue: string
+  // The pop-up menus' and tips' card background.
+  menu: string
 }
 export type Settings = {
   // The blocks; absent until set, so the older layout in the mod's store
@@ -35,6 +37,8 @@ export type Settings = {
   weekShow: string
   // How hovered items change color; see HOVER_STYLES.
   hover: string
+  // What a folder click starts in its new tab.
+  claudeCmd: string
 }
 
 // Catppuccin Macchiato. Left side cool, right side warm.
@@ -51,6 +55,7 @@ export const DEFAULT_COLORS: Colors = {
   fiveValue: '#eed49f', // yellow
   weekLabel: '#f5bde6', // pink
   weekValue: '#f4dbd6', // rosewater
+  menu: '#363a4f', // surface0
 }
 // Context bar styles: the filled and empty glyph. `line` is one glyph in two
 // colors, so no font can draw gaps or overlaps into it.
@@ -62,7 +67,7 @@ export const CTX_BARS: Record<string, { name: string; full: string; empty: strin
   progress: { name: 'Progress (Nerd Font)', full: '\uee04', empty: '\uee01', preview: '\uee03\uee04\uee04\uee01\uee01\uee02' },
 }
 export const USAGE_SHOW: Record<string, string> = { percent: 'Percent left', time: 'Time until reset' }
-export const DEFAULTS: Settings = { colors: DEFAULT_COLORS, pathMax: 0, ctxBar: 'progress', icons: true, fiveShow: 'percent', weekShow: 'percent', hover: 'complement' }
+export const DEFAULTS: Settings = { colors: DEFAULT_COLORS, pathMax: 0, ctxBar: 'progress', icons: true, fiveShow: 'percent', weekShow: 'percent', hover: 'complement', claudeCmd: 'claude' }
 
 // A color is a hex string, or `ansi:0` to `ansi:15`: one of the terminal
 // theme's own 16 colors, so it follows whatever theme the terminal has.
@@ -153,7 +158,8 @@ export function cleanSettings(v: unknown): Settings {
   // Not picked yet: the Nerd Font progress bar with icons on, the plain line without.
   const ctxBar = typeof o.ctxBar === 'string' && o.ctxBar in CTX_BARS ? o.ctxBar : icons ? 'progress' : 'line'
   const show = (v: unknown) => (typeof v === 'string' && v in USAGE_SHOW ? v : 'percent')
-  const out: Settings = { colors, pathMax, ctxBar, icons, fiveShow: show(o.fiveShow), weekShow: show(o.weekShow), hover: typeof o.hover === 'string' && o.hover in HOVER_STYLES ? o.hover : DEFAULTS.hover }
+  const out: Settings = { colors, pathMax, ctxBar, icons, fiveShow: show(o.fiveShow), weekShow: show(o.weekShow), hover: typeof o.hover === 'string' && o.hover in HOVER_STYLES ? o.hover : DEFAULTS.hover,
+    claudeCmd: typeof o.claudeCmd === 'string' && o.claudeCmd.trim() && !/[\n\r]/.test(o.claudeCmd) ? o.claudeCmd.trim() : DEFAULTS.claudeCmd }
   if (o.bar && typeof o.bar === 'object') out.bar = cleanBar(o.bar)
   else if (o.layout && typeof o.layout === 'object') out.bar = fromLayout(o.layout)
   return out
