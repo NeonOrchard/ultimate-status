@@ -50,3 +50,11 @@ describe('hover', () => {
     expect(complement('ansi:11')).toBe('ansi:12')
   })
 })
+
+describe('5h and 7d', () => {
+  test('time until reset by default; percent when the config sets it', () => {
+    expect(cleanSettings({})).toMatchObject({ fiveShow: 'time', weekShow: 'time' })
+    expect(cleanSettings({ fiveShow: 'percent', weekShow: 'percent' })).toMatchObject({ fiveShow: 'percent', weekShow: 'percent' })
+    expect(cleanSettings({ fiveShow: 'nonsense' }).fiveShow).toBe('time')
+  })
+})
