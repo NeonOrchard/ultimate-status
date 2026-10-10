@@ -428,6 +428,114 @@ export const CLICKS =
 
 const PANEL = 'ultimate-status-config'
 
+// Outside tmux the bar sits right under the chat box, in the hint line's spot, so the
+// band's [-] can't collapse it away; its menus and hover tips open in the band above.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function barParts($: EngineInterface, e: any, columns: number) {
+  const { Box, Button, Text } = $.ui.resolve(e)
+  const d = await gather($)
+  const open = await read($, popup)
+  const close = () => update($, popup, () => null)
+  const toggle = (id: string) => () => update($, popup, cur => (cur === id ? null : id))
+
+  const tips: [ItemId, string][] = [
+    ['model', `Model: ${d.model}. Click to change the model or the speed.`],
+    ['speed', `Speed: ${d.speed}. Click to change the model or the speed.`],
+    ['path', `Folder: ${d.cwd}. Click any part to open a new iTerm tab there.`],
+    ['branch', `Git branch: ${d.branch || 'none'}. The branch this folder is on.`],
+    ['ctx', `Context: ${pct(d.ctx)} of my working memory for this chat is used. When it fills up, older parts get summarized.`],
+    ['five', `5-hour window: ${leftPct(d.u.five)} left of your usage limit for the current 5 hours.${left(d.u.fiveResets)}`],
+    ['week', `7-day window: ${leftPct(d.u.week)} left of your weekly usage limit.${left(d.u.weekResets)}`],
+  ]
+
+  let popupRow = null
+  if (open === 'model') {
+    popupRow = (
+      <Box gap={2}>
+        <Button key="pick-model" label="Model…" onPress={async () => { await close(); await $.command.run({ command: 'model' }) }} />
+        <Button key="pick-speed" label={d.speed === 'Fast' ? 'Speed: Normal' : 'Speed: ⚡ Fast'} onPress={async () => { await close(); await $.command.run({ command: 'fast' }) }} />
+        <Button key="close" label="✕" onPress={close} />
+      </Box>
+    )
+  } else if (open?.startsWith('dir:')) {
+    const dir = open.slice(4)
+    popupRow = (
+      <Box gap={2}>
+        <Text color={inkColor(C.info)}>{dir}</Text>
+        <Button key="tab" label="New tab" onPress={async () => { await close(); await openTab($, dir, false) }} />
+        <Button key="tab-claude" label="Tab + Claude" onPress={async () => { await close(); await openTab($, dir, true) }} />
+        <Button key="close" label="✕" onPress={close} />
+      </Box>
+    )
+  }
+
+  // The same blocks as the tmux bar, drawn by Claude: each item hovers for
+  // its tip, and the model and folders click open their menus.
+  const dirs = shortenPath(d.dirs, pathMax)
+  const drawItem = (b: { id: string }, id: ItemId) => {
+    const ps = itemContent(d, id, pathMax)
+    return (
+      // A Box, not a Text: Buttons can't sit inside an inline element.
+      <Box key={`${b.id}-${id}`}>
+        {ps.map((p, i) => {
+          const t = <Text key={`${id}${i}`} color={inkColor(p.fg)} hover={{ scope: id, underline: true }}>{p.text}</Text>
+          if (p.range === 'model') return <Button key={`${id}b${i}`} plain onPress={toggle('model')}>{t}</Button>
+          if (p.range?.startsWith('d')) {
+            const dir = dirs[Number(p.range.slice(1))]
+            return dir ? <Button key={`${id}b${i}`} plain onPress={toggle(`dir:${dir.path}`)}>{t}</Button> : t
+          }
+          return t
+        })}
+      </Box>
+    )
+  }
+  const drawBlock = (b: BarConfig['blocks'][number]) => {
+    const shown = b.items.filter(id => itemContent(d, id).length > 0)
+    return (
+      <Box key={`blk-${b.id}`}>
+        {shown.map((id, i) => (
+          <Box key={`${b.id}i${i}`}>
+            {i > 0 && b.joiner && <Text color={inkColor(C.dim)}>{b.joiner}</Text>}
+            {drawItem(b, id)}
+          </Box>
+        ))}
+      </Box>
+    )
+  }
+  const gap = (b: { id: string; divider: string }) =>
+    <Text key={`gap-${b.id}`} color={inkColor(C.dim)}>{b.divider ? `  ${b.divider}  ` : '  '}</Text>
+  const blocks = bar.blocks.filter(b => b.items.some(id => itemContent(d, id).length > 0))
+  const leftBlocks = blocks.filter(b => b.side === 'left')
+  const rightBlocks = blocks.filter(b => b.side === 'right')
+
+  const tipRows = tips.map(([scope, text]) => (
+    <Box key={`tip-${scope}`} display="none" hover={{ scope, display: 'flex' }}>
+      <Text color={inkColor(C.info)}>{text}</Text>
+    </Box>
+  ))
+  const barRow = (
+    <Box key="bar" width={columns} justifyContent="space-between">
+      <Box flexShrink={1} overflow="hidden">
+        {leftBlocks.map((b, i) => (
+          <Box key={`l-${b.id}`}>
+            {i > 0 && gap(leftBlocks[i - 1]!)}
+            {drawBlock(b)}
+          </Box>
+        ))}
+      </Box>
+      <Box flexShrink={0}>
+        {rightBlocks.map(b => (
+          <Box key={`r-${b.id}`}>
+            {gap(b)}
+            {drawBlock(b)}
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  )
+  return { popupRow, tipRows, barRow }
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const result = await next(e)
@@ -514,123 +622,44 @@ export const register: Register = on => {
     return next(e)
   })
 
-  // The band above the chat box. The bar is its last row, so it always sits
-  // directly on top of the box; popups and hover info open above it.
+  // The band above the chat box: inside tmux it pushes the top rows; outside, it
+  // holds the bar's menus and hover tips (the bar itself is under the box).
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
-    const { Box, Button, Text } = $.ui.resolve(e)
     await useSettings($)
-    const d = await gather($)
     const pane = await paneOf($)
     if (pane) {
+      const d = await gather($)
       // The rows span the whole tmux window, not just Claude's split.
       const r = await $.process.run(['tmux', 'display', '-p', '-t', pane, '#{window_width}']).catch(() => undefined)
       await pushTmux($, pane, d, Number(r?.stdout.trim()) || e.viewport?.columns || 120)
       return next(e)
     }
-    const open = await read($, popup)
-    const close = () => update($, popup, () => null)
-    const toggle = (id: string) => () => update($, popup, cur => (cur === id ? null : id))
-
-    const tips: [ItemId, string][] = [
-      ['model', `Model: ${d.model}. Click to change the model or the speed.`],
-      ['speed', `Speed: ${d.speed}. Click to change the model or the speed.`],
-      ['path', `Folder: ${d.cwd}. Click any part to open a new iTerm tab there.`],
-      ['branch', `Git branch: ${d.branch || 'none'}. The branch this folder is on.`],
-      ['ctx', `Context: ${pct(d.ctx)} of my working memory for this chat is used. When it fills up, older parts get summarized.`],
-      ['five', `5-hour window: ${leftPct(d.u.five)} left of your usage limit for the current 5 hours.${left(d.u.fiveResets)}`],
-      ['week', `7-day window: ${leftPct(d.u.week)} left of your weekly usage limit.${left(d.u.weekResets)}`],
-    ]
-
-    let popupRow = null
-    if (open === 'model') {
-      popupRow = (
-        <Box gap={2}>
-          <Button key="pick-model" label="Model…" onPress={async () => { await close(); await $.command.run({ command: 'model' }) }} />
-          <Button key="pick-speed" label={d.speed === 'Fast' ? 'Speed: Normal' : 'Speed: ⚡ Fast'} onPress={async () => { await close(); await $.command.run({ command: 'fast' }) }} />
-          <Button key="close" label="✕" onPress={close} />
-        </Box>
-      )
-    } else if (open?.startsWith('dir:')) {
-      const dir = open.slice(4)
-      popupRow = (
-        <Box gap={2}>
-          <Text color={inkColor(C.info)}>{dir}</Text>
-          <Button key="tab" label="New tab" onPress={async () => { await close(); await openTab($, dir, false) }} />
-          <Button key="tab-claude" label="Tab + Claude" onPress={async () => { await close(); await openTab($, dir, true) }} />
-          <Button key="close" label="✕" onPress={close} />
-        </Box>
-      )
-    }
-
-    // The same blocks as the tmux bar, drawn by Claude: each item hovers for
-    // its tip, and the model and folders click open their menus.
-    const dirs = shortenPath(d.dirs, pathMax)
-    const drawItem = (b: { id: string }, id: ItemId) => {
-      const ps = itemContent(d, id, pathMax)
-      return (
-        <Text key={`${b.id}-${id}`} hover={{ scope: id, underline: true }}>
-          {ps.map((p, i) => {
-            const t = <Text key={`${id}${i}`} color={inkColor(p.fg)}>{p.text}</Text>
-            if (p.range === 'model') return <Button key={`${id}b${i}`} plain onPress={toggle('model')}>{t}</Button>
-            if (p.range?.startsWith('d')) {
-              const dir = dirs[Number(p.range.slice(1))]
-              return dir ? <Button key={`${id}b${i}`} plain onPress={toggle(`dir:${dir.path}`)}>{t}</Button> : t
-            }
-            return t
-          })}
-        </Text>
-      )
-    }
-    const drawBlock = (b: BarConfig['blocks'][number]) => {
-      const shown = b.items.filter(id => itemContent(d, id).length > 0)
-      return (
-        <Box key={`blk-${b.id}`}>
-          {shown.map((id, i) => (
-            <Box key={`${b.id}i${i}`}>
-              {i > 0 && b.joiner && <Text color={inkColor(C.dim)}>{b.joiner}</Text>}
-              {drawItem(b, id)}
-            </Box>
-          ))}
-        </Box>
-      )
-    }
-    const gap = (b: { id: string; divider: string }) =>
-      <Text key={`gap-${b.id}`} color={inkColor(C.dim)}>{b.divider ? `  ${b.divider}  ` : '  '}</Text>
-    const blocks = bar.blocks.filter(b => b.items.some(id => itemContent(d, id).length > 0))
-    const leftBlocks = blocks.filter(b => b.side === 'left')
-    const rightBlocks = blocks.filter(b => b.side === 'right')
-
+    const { Box } = $.ui.resolve(e)
+    const { popupRow, tipRows } = await barParts($, e, e.props.bodyColumns)
     // Other mods' bands (image tiles and the like) draw above this one.
     const below = await next(e)
-
     return (
       <Box flexDirection="column">
         {below}
         {popupRow}
-        {tips.map(([scope, text]) => (
-          <Box key={`tip-${scope}`} display="none" hover={{ scope, display: 'flex' }}>
-            <Text color={inkColor(C.info)}>{text}</Text>
-          </Box>
-        ))}
-        <Box key="bar" width={e.props.bodyColumns} justifyContent="space-between">
-          <Box flexShrink={1} overflow="hidden">
-            {leftBlocks.map((b, i) => (
-              <Box key={`l-${b.id}`}>
-                {i > 0 && gap(leftBlocks[i - 1]!)}
-                {drawBlock(b)}
-              </Box>
-            ))}
-          </Box>
-          <Box flexShrink={0}>
-            {rightBlocks.map(b => (
-              <Box key={`r-${b.id}`}>
-                {gap(b)}
-                {drawBlock(b)}
-              </Box>
-            ))}
-          </Box>
-        </Box>
+        {tipRows}
+      </Box>
+    )
+  })
+
+  // The bar itself, outside tmux: one row right under the chat box, above Claude's
+  // own hint and mode line.
+  on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
+    await useSettings($)
+    if (await paneOf($)) return next(e)
+    const { Box } = $.ui.resolve(e)
+    const { barRow } = await barParts($, e, (e.viewport?.columns ?? 120) - 1)
+    const hint = await next(e)
+    return (
+      <Box flexDirection="column">
+        {barRow}
+        {hint}
       </Box>
     )
   })
