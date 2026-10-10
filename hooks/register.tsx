@@ -27,6 +27,8 @@ let C: Colors = DEFAULT_COLORS
 let pathMax = DEFAULTS.pathMax
 let ctxBar = DEFAULTS.ctxBar
 let icons = DEFAULTS.icons
+let fiveShow = DEFAULTS.fiveShow
+let weekShow = DEFAULTS.weekShow
 
 export function prettyModel(id: string): string {
   const m = /claude-([a-z]+)-(\d+)(?:-(\d+))?/i.exec(id)
@@ -75,6 +77,18 @@ export function splitPath(cwd: string, home: string): { label: string; path: str
     out.push({ label: p, path: acc })
   }
   return out
+}
+
+// Time until a reset, short: `2h 13m`, `3d 4h`, `45m`; '' when unknown or past.
+export function until(resetsAt?: string, now = Date.now()): string {
+  if (!resetsAt) return ''
+  const ms = Date.parse(resetsAt) - now
+  if (!(ms > 0)) return ''
+  const m = Math.ceil(ms / 60000)
+  const d = Math.floor(m / 1440)
+  const h = Math.floor((m % 1440) / 60)
+  if (d > 0) return `${d}d ${h}h`
+  return h > 0 ? `${h}h ${m % 60}m` : `${m}m`
 }
 
 function left(resetsAt?: string): string {
@@ -233,10 +247,12 @@ function itemContent(d: Bar, id: ItemId, max?: number): Piece[] {
         { fg: C.ctxValue, text: ` ${pct(d.ctx)}` },
       ].filter(p => p.text)
     }
+    // Percent left, or (if set) the time until the window resets; the
+    // percent when the reset time isn't known yet.
     case 'five':
-      return [{ fg: C.fiveLabel, text: '5h ' }, { fg: C.fiveValue, text: leftPct(d.u.five) }]
+      return [{ fg: C.fiveLabel, text: '5h ' }, { fg: C.fiveValue, text: (fiveShow === 'time' && until(d.u.fiveResets)) || leftPct(d.u.five) }]
     case 'week':
-      return [{ fg: C.weekLabel, text: '7d ' }, { fg: C.weekValue, text: leftPct(d.u.week) }, { fg: C.info, text: ' left' }]
+      return [{ fg: C.weekLabel, text: '7d ' }, { fg: C.weekValue, text: (weekShow === 'time' && until(d.u.weekResets)) || leftPct(d.u.week) }, { fg: C.info, text: ' left' }]
   }
 }
 
@@ -336,6 +352,8 @@ async function useSettings($: EngineInterface) {
   pathMax = s.pathMax
   ctxBar = s.ctxBar
   icons = s.icons
+  fiveShow = s.fiveShow
+  weekShow = s.weekShow
   if (!unlocked && cached && cached.mtime !== applied) {
     applied = cached.mtime
     if (s.bar) bar = s.bar
@@ -344,18 +362,20 @@ async function useSettings($: EngineInterface) {
 
 // Writes the bar and colors into the file, keeping its other keys; a key set
 // to `undefined` is taken out. A file that isn't valid JSON is left alone.
-export async function saveSettings($: EngineInterface, next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean }) {
+export async function saveSettings($: EngineInterface, next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean; fiveShow?: string; weekShow?: string }) {
   if ('bar' in next) bar = next.bar ?? DEFAULT_BAR
   if ('colors' in next) C = next.colors ?? DEFAULT_COLORS
   if ('ctxBar' in next) ctxBar = next.ctxBar ?? DEFAULTS.ctxBar
   if ('icons' in next) icons = next.icons ?? DEFAULTS.icons
+  if ('fiveShow' in next) fiveShow = next.fiveShow ?? DEFAULTS.fiveShow
+  if ('weekShow' in next) weekShow = next.weekShow ?? DEFAULTS.weekShow
   try {
     const path = await settingsPath($)
     const has = await $.fs.exists(path)
     const text = has ? ((await $.fs.read(path)) as string) : '{}'
     const o = JSON.parse(text.trim() || '{}')
     if (!o || typeof o !== 'object' || Array.isArray(o)) throw new Error('not an object')
-    for (const k of ['bar', 'colors', 'ctxBar'] as const) {
+    for (const k of ['bar', 'colors', 'ctxBar', 'fiveShow', 'weekShow'] as const) {
       if (!(k in next)) continue
       if (next[k]) o[k] = next[k]
       else delete o[k]
@@ -552,7 +572,7 @@ async function barParts($: EngineInterface, e: any, columns: number | string) {
       // A Box, not a Text: Buttons can't sit inside an inline element.
       <Box key={`${b.id}-${id}`}>
         {ps.map((p, i) => {
-          const t = <Text key={`${id}${i}`} color={inkColor(p.fg)} hover={{ scope: id, underline: true }}>{p.text}</Text>
+          const t = <Text key={`${id}${i}`} color={inkColor(p.fg)} hover={{ scope: id, backgroundColor: inkColor(C.hover) }}>{p.text}</Text>
           if (p.range === 'model') return <Button key={`${id}b${i}`} plain onPress={toggle('model')}>{t}</Button>
           if (p.range?.startsWith('d')) {
             const dir = dirs[Number(p.range.slice(1))]
@@ -624,6 +644,8 @@ export const register: Register = on => {
     pathMax = s.pathMax
     ctxBar = s.ctxBar
     icons = s.icons
+    fiveShow = s.fiveShow
+    weekShow = s.weekShow
     // Before the settings file, a dragged layout lived in the mod store.
     const stored = await $.store.get('layout')
     bar = s.bar ?? (stored ? fromLayout(stored) : DEFAULT_BAR)
@@ -671,6 +693,8 @@ export const register: Register = on => {
       colors: C,
       ctxBar,
       icons,
+      fiveShow,
+      weekShow,
       picking: await read($, pick),
       shownFlavor: await read($, flavor),
       setPick: fn => { void update($, pick, fn) },

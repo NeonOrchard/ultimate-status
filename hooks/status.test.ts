@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
-import { pathSep, prettyModel, shortenPath, splitPath } from './register'
+import { pathSep, prettyModel, shortenPath, splitPath, until } from './register'
 
 describe('ultimate-status', () => {
   test('model ids read nicely', () => {
@@ -46,5 +46,19 @@ describe('windows paths', () => {
   test('the profile folder shows as ~', () => {
     expect(splitPath('C:\\Users\\me\\WorkSpace', 'C:\\Users\\me').map(x => x.label)).toEqual(['~', 'WorkSpace'])
     expect(pathSep(splitPath('/Users/me/x', '/Users/me'))).toBe('/')
+  })
+})
+
+describe('time until reset', () => {
+  const now = Date.parse('2026-10-10T12:00:00Z')
+  test('short and readable', () => {
+    expect(until('2026-10-10T14:13:00Z', now)).toBe('2h 13m')
+    expect(until('2026-10-13T16:00:00Z', now)).toBe('3d 4h')
+    expect(until('2026-10-10T12:45:00Z', now)).toBe('45m')
+  })
+
+  test('unknown or past shows nothing, so the percent shows instead', () => {
+    expect(until(undefined, now)).toBe('')
+    expect(until('2026-10-10T11:00:00Z', now)).toBe('')
   })
 })

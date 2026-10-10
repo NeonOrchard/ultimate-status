@@ -4,7 +4,7 @@ A colorful, clickable status bar for Claude Code.
 
 **Inside tmux**, it gets three rows right under the tmux tabs: a divider, the bar, a divider. It stays put while you scroll. The rows show only while a Claude pane is active.
 
-**Outside tmux** (Warp, plain iTerm2, and Windows, which has no tmux), it sits on its own line at the very bottom, under the chat box. Its menus and hover info open above the box. Claude Code has no spot at the top of the screen, so the top bar needs tmux. Hover any part to see what it means.
+**Outside tmux** (Warp, plain iTerm2, and Windows, which has no tmux), it sits on its own line at the very bottom, under the chat box. Its menus and hover info open above the box. Claude Code has no spot at the top of the screen, so the top bar needs tmux. Hover any part to highlight it and see what it means.
 
 <br>
 
@@ -20,7 +20,7 @@ Each piece of data is an **item**: Model, Speed, Path, Git branch, Context, 5h u
 - **Context**: an icon, a bar and a percent. Pick its style: **Progress** (a rounded Nerd Font bar, the default with icons on), **Line** `━━━━` (thin, any font, the default with icons off) or **Shade** `█░`.
 - **Icons** (on by default): Nerd Font icons for context `󰧑` and the path `󰉋`. Off shows `ctx` and no folder icon.
 - **Nerd Font prompt**: the first time it loads without a Nerd Font, it offers to install AtkynsonMono Nerd Font from its official source (Homebrew on macOS, else the Nerd Fonts download page). **No** turns icons off. The font is never bundled.
-- **5h** and **7d**: how much usage you have left.
+- **5h** and **7d**: how much usage you have left, or (set in config) the time until each window resets, like `5h 2h 13m`.
 
 <br>
 
@@ -72,6 +72,7 @@ The panel saves to `ultimate-status.json` in your Claude config folder (`~/.clau
 
 - `bar`: the blocks, in order. Each has `side`, `items`, `divider`, `joiner`, `resizable` and an optional `width`.
 - `colors`: any of `dim`, `info`, `model`, `speed`, `path` (a list), `branch`, `ctxLabel`, `ctxValue`, `fiveLabel`, `fiveValue`, `weekLabel`, `weekValue`, as `#rrggbb` or `ansi:0` to `ansi:15` (your terminal theme's colors).
+- `fiveShow`, `weekShow`: `percent` (the default) or `time` (time until the window resets).
 - `ctxBar`: `progress`, `line` or `shade`.
 - `icons`: `true` or `false`.
 - `pathMax`: optional cap in characters. Left out (the default), the path shrinks only when the bar runs out of room.

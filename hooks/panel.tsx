@@ -2,7 +2,7 @@ import type { RenderElement } from 'claude-code'
 
 import { DEFAULT_BAR, DIVIDERS, ITEMS, JOINERS, addBlock, flipBlock, moveItem, removeBlock, setBlock, shiftBlock } from './bar'
 import type { BarConfig, Block, ItemId } from './bar'
-import { ANSI_NAMES, CATPPUCCIN, CTX_BARS, DEFAULT_COLORS, inkColor, isColor } from './settings'
+import { ANSI_NAMES, CATPPUCCIN, CTX_BARS, DEFAULT_COLORS, USAGE_SHOW, inkColor, isColor } from './settings'
 import type { Colors } from './settings'
 
 // The settings panel: /ultimate-status config. Every change saves right away
@@ -20,7 +20,7 @@ const ITEM_COLORS: Record<ItemId, [string, string][]> = {
   five: [['fiveLabel', 'Label'], ['fiveValue', 'Value']],
   week: [['weekLabel', 'Label'], ['weekValue', 'Value'], ['info', '"left"']],
 }
-const OTHER_COLORS: [string, string][] = [['dim', 'Dividers and joiners'], ['info', 'Notes and tips']]
+const OTHER_COLORS: [string, string][] = [['dim', 'Dividers and joiners'], ['info', 'Notes and tips'], ['hover', 'Hover highlight']]
 
 const getColor = (c: Colors, key: string): string =>
   key.startsWith('path.') ? c.path[Number(key.slice(5))] ?? c.path[0] ?? c.dim : (c[key as keyof Omit<Colors, 'path'>] as string)
@@ -57,7 +57,9 @@ export type PanelContext = {
   toast: (text: string) => void
   ctxBar: string
   icons: boolean
-  save: (next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean }) => Promise<void>
+  fiveShow: string
+  weekShow: string
+  save: (next: { bar?: BarConfig; colors?: Colors; ctxBar?: string; icons?: boolean; fiveShow?: string; weekShow?: string }) => Promise<void>
 }
 
 type El = (props: Record<string, unknown>, ...children: unknown[]) => RenderElement
@@ -194,6 +196,12 @@ export function panel(ctx: PanelContext): RenderElement {
         {row('icons', 'Icons',
           dropdown('icons', ctx.icons ? 'on' : 'off', [{ value: 'on', label: 'On  󰧑 (Nerd Font)' }, { value: 'off', label: 'Off  ctx' }],
             v => ctx.save({ icons: v === 'on' })))}
+        {row('five-show', '5h shows',
+          dropdown('fiveshow', ctx.fiveShow, Object.entries(USAGE_SHOW).map(([value, label]) => ({ value, label })),
+            v => ctx.save({ fiveShow: v })))}
+        {row('week-show', '7d shows',
+          dropdown('weekshow', ctx.weekShow, Object.entries(USAGE_SHOW).map(([value, label]) => ({ value, label })),
+            v => ctx.save({ weekShow: v })))}
       </Box>
     </Box>
   )
