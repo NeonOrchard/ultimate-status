@@ -62,7 +62,7 @@ export const CTX_BARS: Record<string, { name: string; full: string; empty: strin
   progress: { name: 'Progress (Nerd Font)', full: '\uee04', empty: '\uee01', preview: '\uee03\uee04\uee04\uee01\uee01\uee02' },
 }
 export const USAGE_SHOW: Record<string, string> = { percent: 'Percent left', time: 'Time until reset' }
-export const DEFAULTS: Settings = { colors: DEFAULT_COLORS, pathMax: 0, ctxBar: 'progress', icons: true, fiveShow: 'percent', weekShow: 'percent', hover: 'complement' }
+export const DEFAULTS: Settings = { colors: DEFAULT_COLORS, pathMax: 0, ctxBar: 'progress', icons: true, fiveShow: 'time', weekShow: 'time', hover: 'complement' }
 
 // A color is a hex string, or `ansi:0` to `ansi:15`: one of the terminal
 // theme's own 16 colors, so it follows whatever theme the terminal has.
@@ -152,7 +152,7 @@ export function cleanSettings(v: unknown): Settings {
   const icons = typeof o.icons === 'boolean' ? o.icons : DEFAULTS.icons
   // Not picked yet: the Nerd Font progress bar with icons on, the plain line without.
   const ctxBar = typeof o.ctxBar === 'string' && o.ctxBar in CTX_BARS ? o.ctxBar : icons ? 'progress' : 'line'
-  const show = (v: unknown) => (typeof v === 'string' && v in USAGE_SHOW ? v : 'percent')
+  const show = (v: unknown) => (typeof v === 'string' && v in USAGE_SHOW ? v : 'time')
   const out: Settings = { colors, pathMax, ctxBar, icons, fiveShow: show(o.fiveShow), weekShow: show(o.weekShow), hover: typeof o.hover === 'string' && o.hover in HOVER_STYLES ? o.hover : DEFAULTS.hover }
   if (o.bar && typeof o.bar === 'object') out.bar = cleanBar(o.bar)
   else if (o.layout && typeof o.layout === 'object') out.bar = fromLayout(o.layout)

@@ -18,7 +18,7 @@ const ITEM_COLORS: Record<ItemId, [string, string][]> = {
   branch: [['branch', 'Branch']],
   ctx: [['ctxLabel', 'Label'], ['ctxValue', 'Value']],
   five: [['fiveLabel', 'Label'], ['fiveValue', 'Value']],
-  week: [['weekLabel', 'Label'], ['weekValue', 'Value'], ['info', '"left"']],
+  week: [['weekLabel', 'Label'], ['weekValue', 'Value']],
 }
 const OTHER_COLORS: [string, string][] = [['dim', 'Dividers and joiners'], ['info', 'Notes and tips']]
 

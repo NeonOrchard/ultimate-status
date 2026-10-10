@@ -275,7 +275,7 @@ function itemContent(d: Bar, id: ItemId, max?: number): Piece[] {
     case 'five':
       return [{ fg: C.fiveLabel, text: '5h ' }, { fg: C.fiveValue, text: (fiveShow === 'time' && until(d.u.fiveResets)) || leftPct(d.u.five) }]
     case 'week':
-      return [{ fg: C.weekLabel, text: '7d ' }, { fg: C.weekValue, text: (weekShow === 'time' && until(d.u.weekResets)) || leftPct(d.u.week) }, { fg: C.info, text: ' left' }]
+      return [{ fg: C.weekLabel, text: '7d ' }, { fg: C.weekValue, text: (weekShow === 'time' && until(d.u.weekResets)) || leftPct(d.u.week) }]
   }
 }
 
