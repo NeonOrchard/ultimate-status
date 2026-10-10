@@ -28,9 +28,14 @@ Each piece of data is an **item**: Model, Speed, Path, Git branch, Context, 5h u
 
 Type `/ultimate-status config`. It opens inside Claude Code, so it works in any terminal (iTerm2, Warp, Windows Terminal, ...).
 
+A live preview of your bar sits at the top and updates as you change things.
+
 - **Blocks** tab: blocks pin to the left or right edge. Per block: its divider (`│ ┃ ║ ┆ | · • /` or none), what goes between its items, whether its divider resizes it, and its width.
-- **Items** tab: which block each item goes in, or hidden. Items in one block share it with no divider between. Also the context bar style.
+- **Items** tab: which block each item goes in, or hidden.
+- **Display** tab: context bar style, icons, what 5h and 7d show, and the hover effect. Simple choices switch with one click.
 - **Colors** tab: pick from your terminal theme's 16 colors (they follow your theme), a Catppuccin flavor, or any `#hex`.
+
+Each tab ends with a line saying how many settings differ from the defaults, with a reset button for that tab.
 
 Keyboard only works too: Tab or ↑↓ moves, Enter acts. An open dropdown keeps the keys until you pick or cancel. Everything saves right away.
 

@@ -1,8 +1,8 @@
 import type { RenderElement } from 'claude-code'
 
 import { DEFAULT_BAR, DIVIDERS, ITEMS, JOINERS, addBlock, flipBlock, moveItem, removeBlock, setBlock, shiftBlock } from './bar'
-import type { BarConfig, Block, ItemId } from './bar'
-import { ANSI_NAMES, CATPPUCCIN, CTX_BARS, DEFAULT_COLORS, HOVER_STYLES, USAGE_SHOW, inkColor, isColor } from './settings'
+import type { BarConfig, Block, ItemId, Piece, Side } from './bar'
+import { ANSI_NAMES, CATPPUCCIN, CTX_BARS, DEFAULTS, DEFAULT_COLORS, HOVER_STYLES, USAGE_SHOW, inkColor, isColor } from './settings'
 import type { Colors } from './settings'
 
 // The settings panel: /ultimate-status config. Every change saves right away
@@ -35,9 +35,21 @@ const colorName = (key: string) =>
 const itemName = (id: ItemId) => ITEMS.find(i => i.id === id)!.name
 const glyphLabel = (g: string) => (g === '' ? 'none' : g === ' ' ? 'space' : `"${g}"`)
 
+// Symbols for the panel. Most are plain Unicode that any font draws; the path
+// and context ones use the Nerd Font glyphs the bar itself uses when icons
+// are on.
+const ICON = {
+  blocks: '▦', items: '≡', display: '◐', colors: '◍', reset: '↺', cycle: '⟳', changed: '●', same: '○',
+  left: '◧', right: '◨',
+}
+const itemIcon = (id: ItemId, nerd: boolean) =>
+  ({ model: '◆', speed: '⚡', path: nerd ? '󰉋' : '▸', branch: '⎇', ctx: nerd ? '󰧑' : '◔', five: '◷', week: '◷' })[id]
+
 export type PanelContext = {
   // The surface's elements, from $.ui.resolve.
   els: Record<string, unknown>
+  // The bar as it draws now, block by block, for the live preview.
+  preview: { side: Side; divider: string; pieces: Piece[] }[]
   bar: BarConfig
   colors: Colors
   // The color being picked ('model', 'path.2', ...) and the flavor shown.
@@ -65,7 +77,9 @@ export type PanelContext = {
 
 type El = (props: Record<string, unknown>, ...children: unknown[]) => RenderElement
 
-export const TABS: [string, string][] = [['blocks', 'Blocks'], ['items', 'Items'], ['colors', 'Colors']]
+export const TABS: [string, string, keyof typeof ICON][] = [
+  ['blocks', 'Blocks', 'blocks'], ['items', 'Items', 'items'], ['display', 'Display', 'display'], ['colors', 'Colors', 'colors'],
+]
 
 export function panel(ctx: PanelContext): RenderElement {
   const { Box, Text, Button } = ctx.els as Record<'Box' | 'Text' | 'Button', El>
@@ -114,6 +128,23 @@ export function panel(ctx: PanelContext): RenderElement {
     )
   }
 
+  // A choice of a few options: one click (or Enter) moves to the next.
+  const cycle = (key: string, value: string, options: { value: string; label: string }[], onPick: (v: string) => unknown) => {
+    const i = Math.max(0, options.findIndex(o => o.value === value))
+    const next = options[(i + 1) % options.length]!
+    return btn({ key, label: `${options[i]?.label ?? value}  ${ICON.cycle}`, onPress: () => onPick(next.value) })
+  }
+
+  // How far a tab is from its defaults, for its reset line.
+  const status = (key: string, changed: number, what: string, onReset: () => unknown) => (
+    <Box key={key} gap={2} marginTop={1}>
+      <Text color={changed ? ui.title : ui.note}>
+        {changed ? `${ICON.changed} ${changed} ${what} changed from default` : `${ICON.same} All ${what} at default`}
+      </Text>
+      {changed > 0 && btn({ key: `${key}-reset`, label: `${ICON.reset} Reset ${what}`, onPress: onReset })}
+    </Box>
+  )
+
   // One setting: a colored label in a fixed column, then its control.
   const row = (key: string, label: string, ...control: unknown[]) => (
     <Box key={key} gap={1}>
@@ -136,7 +167,7 @@ export function panel(ctx: PanelContext): RenderElement {
     return (
       <Box key={`blk-${b.id}`} flexDirection="column" borderStyle="round" borderColor={ui.note} paddingX={1} marginTop={1}>
         <Box gap={1} justifyContent="space-between">
-          <Text bold color={ui.title}>{`Block ${n}  ${b.items.length ? b.items.map(itemName).join(' + ') : '(empty)'}`}</Text>
+          <Text bold color={ui.title}>{`Block ${n}  ${b.items.length ? b.items.map(id => `${itemIcon(id, ctx.icons)} ${itemName(id)}`).join('  +  ') : '(empty)'}`}</Text>
           <Box gap={1}>
             {i > 0 && btn({ key: `up-${b.id}`, label: '◀ Move', onPress: () => setBar(shiftBlock(bar, b.id, -1)) })}
             {i < same.length - 1 && btn({ key: `dn-${b.id}`, label: 'Move ▶', onPress: () => setBar(shiftBlock(bar, b.id, 1)) })}
@@ -151,7 +182,8 @@ export function panel(ctx: PanelContext): RenderElement {
           dropdown(`joins-${b.id}`, b.joiner, JOINERS.map(g => ({ value: g, label: glyphLabel(g) })),
             v => setBar(setBlock(bar, b.id, { joiner: v }))))}
         {row(`rs-${b.id}`, 'Resizable',
-          btn({ key: `rsb-${b.id}`, label: b.resizable ? 'Yes' : 'No', onPress: () => setBar(setBlock(bar, b.id, { resizable: !b.resizable })) }),
+          cycle(`rsb-${b.id}`, b.resizable ? 'yes' : 'no', [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }],
+            v => setBar(setBlock(bar, b.id, { resizable: v === 'yes' }))),
           <Text key={`rsn-${b.id}`} color={ui.note}>drag its divider while unlocked</Text>)}
         {row(`w-${b.id}`, 'Width',
           <Text key={`wt-${b.id}`} color={ui.text}>{b.width === undefined ? 'auto' : `${b.width} columns`}</Text>,
@@ -159,21 +191,30 @@ export function panel(ctx: PanelContext): RenderElement {
       </Box>
     )
   }
+  // Blocks that differ from the default layout (added, removed, or changed).
+  const blocksChanged = (() => {
+    const ids = new Set([...bar.blocks, ...DEFAULT_BAR.blocks].map(b => b.id))
+    let n = 0
+    for (const id of ids) {
+      const a = bar.blocks.find(b => b.id === id)
+      const b = DEFAULT_BAR.blocks.find(x => x.id === id)
+      if (JSON.stringify(a) !== JSON.stringify(b)) n++
+    }
+    return n || 1
+  })()
   const blocksTab = (
     <Box key="page-blocks" flexDirection="column">
       {note('bn', 'Left blocks pin to the left edge, right blocks to the right. Each divider sits on its block\'s inner side.')}
       {(['left', 'right'] as const).map(side => (
         <Box key={`side-${side}`} flexDirection="column" marginTop={1}>
           <Box gap={2}>
-            <Text bold underline color={ui.title}>{side === 'left' ? 'Left side' : 'Right side'}</Text>
+            <Text bold underline color={ui.title}>{side === 'left' ? `${ICON.left} Left side` : `${ICON.right} Right side`}</Text>
             {btn({ key: `add-${side}`, label: '+ New block', onPress: () => setBar(addBlock(bar, side)) })}
           </Box>
           {bar.blocks.filter(b => b.side === side).map(blockCard)}
         </Box>
       ))}
-      <Box marginTop={1}>
-        {btn({ key: 'reset-bar', label: 'Reset blocks', onPress: () => setBar(structuredClone(DEFAULT_BAR)) })}
-      </Box>
+      {status('st-blocks', JSON.stringify(bar) === JSON.stringify(DEFAULT_BAR) ? 0 : blocksChanged, 'blocks', () => setBar(structuredClone(DEFAULT_BAR)))}
     </Box>
   )
 
@@ -183,27 +224,39 @@ export function panel(ctx: PanelContext): RenderElement {
     ...bar.blocks.map(b => ({ value: b.id, label: `Block ${bar.blocks.indexOf(b) + 1}  (${b.side}: ${b.items.map(itemName).join(' + ') || 'empty'})` })),
     { value: 'hidden', label: 'Hidden' },
   ]
+  const defaultWhere = (id: ItemId) => DEFAULT_BAR.blocks.find(b => b.items.includes(id))?.id ?? 'hidden'
+  const itemsChanged = ITEMS.filter(it => where(it.id) !== defaultWhere(it.id)).length
   const itemsTab = (
     <Box key="page-items" flexDirection="column">
       {note('in', 'Pick the block each item shows in. Items in the same block share it, with no divider between.')}
       <Box flexDirection="column" marginTop={1}>
-        {ITEMS.map(it => row(`item-${it.id}`, it.name,
+        {ITEMS.map(it => row(`item-${it.id}`, `${itemIcon(it.id, ctx.icons)} ${it.name}`,
           dropdown(`in-${it.id}`, where(it.id), blockOptions, v => setBar(moveItem(bar, it.id, v === 'hidden' ? null : v)))))}
       </Box>
+      {status('st-items', itemsChanged, 'placements', () => setBar(structuredClone(DEFAULT_BAR)))}
+    </Box>
+  )
+
+  // --- Display tab: how items look.
+  const displayChanged = (['ctxBar', 'icons', 'fiveShow', 'weekShow', 'hover'] as const).filter(k => ctx[k] !== DEFAULTS[k]).length
+  const usage = Object.entries(USAGE_SHOW).map(([value, label]) => ({ value, label }))
+  const displayTab = (
+    <Box key="page-display" flexDirection="column">
+      {note('dn', 'How the items look. One click switches a choice; the bar updates right away.')}
       <Box flexDirection="column" marginTop={1}>
-        {row('ctx-style', 'Context bar',
+        {row('ctx-style', `${itemIcon('ctx', ctx.icons)} Context bar`,
           dropdown('ctxbar', ctx.ctxBar, Object.entries(CTX_BARS).map(([id, st]) => ({ value: id, label: `${st.name}  ${st.preview ?? st.full.repeat(4) + st.empty.repeat(4)}` })),
             v => ctx.save({ ctxBar: v })))}
         {row('icons', 'Icons',
-          dropdown('icons', ctx.icons ? 'on' : 'off', [{ value: 'on', label: 'On  󰧑 (Nerd Font)' }, { value: 'off', label: 'Off  ctx' }],
+          cycle('icons', ctx.icons ? 'on' : 'off', [{ value: 'on', label: 'On  󰧑 󰉋 (Nerd Font)' }, { value: 'off', label: 'Off  (words)' }],
             v => ctx.save({ icons: v === 'on' })))}
-        {row('five-show', '5h shows',
-          dropdown('fiveshow', ctx.fiveShow, Object.entries(USAGE_SHOW).map(([value, label]) => ({ value, label })),
-            v => ctx.save({ fiveShow: v })))}
-        {row('week-show', '7d shows',
-          dropdown('weekshow', ctx.weekShow, Object.entries(USAGE_SHOW).map(([value, label]) => ({ value, label })),
-            v => ctx.save({ weekShow: v })))}
+        {row('five-show', `${itemIcon('five', ctx.icons)} 5h shows`, cycle('fiveshow', ctx.fiveShow, usage, v => ctx.save({ fiveShow: v })))}
+        {row('week-show', `${itemIcon('week', ctx.icons)} 7d shows`, cycle('weekshow', ctx.weekShow, usage, v => ctx.save({ weekShow: v })))}
+        {row('hover-style', 'On hover',
+          cycle('hoverstyle', ctx.hover, Object.entries(HOVER_STYLES).map(([value, label]) => ({ value, label })), v => ctx.save({ hover: v })))}
       </Box>
+      {status('st-display', displayChanged, 'display settings', () =>
+        ctx.save({ ctxBar: DEFAULTS.ctxBar, icons: DEFAULTS.icons, fiveShow: DEFAULTS.fiveShow, weekShow: DEFAULTS.weekShow, hover: DEFAULTS.hover }))}
     </Box>
   )
 
@@ -254,34 +307,60 @@ export function panel(ctx: PanelContext): RenderElement {
         <Text color={ui.text}>{l}</Text>
       </Box>
     )))
+  const colorKeys = [...Object.values(ITEM_COLORS).flat(), ...OTHER_COLORS].map(([k]) => k)
+  const colorsChanged = [...new Set(colorKeys)].filter(k => getColor(colors, k) !== getColor(DEFAULT_COLORS, k)).length
   const colorsTab = (
     <Box key="page-colors" flexDirection="column">
       {picker}
       {!picking && note('cn', 'Click a swatch (or press Enter on it) to change that color.')}
       <Box flexDirection="column" marginTop={1}>
-        {ITEMS.map(it => colorRow(`cr-${it.id}`, it.name, ITEM_COLORS[it.id]))}
+        {ITEMS.map(it => colorRow(`cr-${it.id}`, `${itemIcon(it.id, ctx.icons)} ${it.name}`, ITEM_COLORS[it.id]))}
         {colorRow('cr-other', 'Other', OTHER_COLORS)}
-        {row('hover-style', 'On hover',
-          dropdown('hoverstyle', ctx.hover, Object.entries(HOVER_STYLES).map(([value, label]) => ({ value, label })),
-            v => ctx.save({ hover: v })))}
       </Box>
-      <Box marginTop={1}>
-        {btn({ key: 'reset-colors', label: 'Reset colors', onPress: () => ctx.save({ colors: DEFAULT_COLORS }) })}
+      {status('st-colors', colorsChanged, 'colors', () => ctx.save({ colors: DEFAULT_COLORS }))}
+    </Box>
+  )
+
+  // Live preview: the bar as it draws now, updated with every change.
+  const previewSide = (side: Side) => {
+    const list = ctx.preview.filter(b => b.side === side)
+    return (
+      <Box key={`pv-${side}`}>
+        {list.map((b, i) => (
+          <Box key={`pv-${side}-${i}`}>
+            {(side === 'right' || i > 0) && (
+              <Text color={inkColor(colors.dim)}>{(side === 'right' ? b : list[i - 1]!).divider ? `  ${(side === 'right' ? b : list[i - 1]!).divider}  ` : '  '}</Text>
+            )}
+            {b.pieces.map((p, j) => <Text key={`pv-${side}-${i}-${j}`} color={inkColor(p.fg)}>{p.text}</Text>)}
+          </Box>
+        ))}
+      </Box>
+    )
+  }
+  const preview = (
+    <Box key="preview" flexDirection="column" borderStyle="round" borderColor={ui.note} paddingX={1} marginTop={1}>
+      <Text color={ui.note}>Preview</Text>
+      <Box justifyContent="space-between">
+        {previewSide('left')}
+        <Box flexGrow={1} />
+        {previewSide('right')}
       </Box>
     </Box>
   )
 
+  const pages: Record<string, RenderElement> = { blocks: blocksTab, items: itemsTab, display: displayTab, colors: colorsTab }
   return (
     <Box flexDirection="column" paddingX={1}>
       <Box gap={2} justifyContent="space-between">
         <Text bold color={ui.title}>Ultimate Status</Text>
         <Text color={ui.note}>{menu ? '↑↓ choose · Enter picks' : 'Tab/↑↓ move · Enter acts · Esc closes'}</Text>
       </Box>
+      {preview}
       <Box gap={1} marginTop={1}>
-        {TABS.map(([id, label]) => btn({ key: `tab-${id}`, label, primary: tab === id, onPress: () => ctx.setTab(id) }))}
+        {TABS.map(([id, label, icon]) => btn({ key: `tab-${id}`, label: `${ICON[icon]} ${label}`, primary: tab === id, onPress: () => ctx.setTab(id) }))}
       </Box>
       <Text color={ui.note}>{'─'.repeat(48)}</Text>
-      {tab === 'blocks' ? blocksTab : tab === 'items' ? itemsTab : colorsTab}
+      {pages[tab] ?? blocksTab}
     </Box>
   )
 }

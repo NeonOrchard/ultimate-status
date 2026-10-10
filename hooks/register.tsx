@@ -735,8 +735,15 @@ export const register: Register = on => {
   on('ui.render', { component: 'Pane', requestId: PANEL }, async ($, e) => {
     await read($, rev)
     await useSettings($)
+    // The bar as it draws now, block by block, for the panel's live preview.
+    const d = await gather($)
+    const item = (id: ItemId, max?: number) => itemContent(d, id, max)
+    const preview = bar.blocks
+      .map(b => ({ side: b.side, divider: b.divider, pieces: blockPieces(b, item, C.dim, b.items.includes('path') ? 40 : undefined) }))
+      .filter(b => b.pieces.length > 0)
     return panel({
       els: $.ui.resolve(e) as unknown as Record<string, unknown>,
+      preview,
       bar,
       colors: C,
       ctxBar,
