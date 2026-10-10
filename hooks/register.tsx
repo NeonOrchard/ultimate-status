@@ -241,6 +241,7 @@ function itemContent(d: Bar, id: ItemId, max?: number): Piece[] {
 }
 
 let drawnDirs: { label: string; path: string }[] = []
+let knownColumns: number | undefined
 let tmuxPane: string | null | undefined
 let lastPush = ''
 // The bar (kept in ultimate-status.json), whether it is unlocked for dragging, and
@@ -540,8 +541,10 @@ async function barParts($: EngineInterface, e: any, columns: number | string) {
   const pathFull = piecesWidth(itemContent(d, 'path', FULL))
   // A "100%" row spans the terminal; the viewport's width is that terminal's
   // unless a docked pane narrows it, so the path may shrink a little early then.
-  const room = typeof columns === 'number' ? columns : (e.viewport?.columns as number | undefined) ?? 0
-  const pathRoom = !room || fullWidth <= room - 2 ? FULL : Math.max(8, pathFull - (fullWidth - (room - 2)))
+  // The row under the chat box gets no width of its own: use the band's, or
+  // assume a narrow 80 until the band has drawn once.
+  const room = typeof columns === 'number' ? columns : (e.viewport?.columns as number | undefined) ?? knownColumns ?? 80
+  const pathRoom = fullWidth <= room - 2 ? FULL : Math.max(8, pathFull - (fullWidth - (room - 2)))
   const dirs = shortenPath(d.dirs, pathRoom)
   const drawItem = (b: { id: string }, id: ItemId) => {
     const ps = itemContent(d, id, pathRoom)
@@ -700,6 +703,8 @@ export const register: Register = on => {
   // The band above the chat box: inside tmux it pushes the top rows; outside, it
   // holds the bar's menus and hover tips (the bar itself is under the box).
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    // The row under the chat box isn't told the terminal's width; this band is.
+    if (e.viewport?.columns) knownColumns = e.viewport.columns
     if (e.props.hasSurvey) return next(e)
     await useSettings($)
     const pane = await paneOf($)
