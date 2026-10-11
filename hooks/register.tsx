@@ -732,10 +732,15 @@ export const register: Register = on => {
     bar = s.bar ?? (stored ? fromLayout(stored) : DEFAULT_BAR)
     // Ask once about a Nerd Font when icons are on and none seems installed.
     if (icons && !(await $.store.get('fontAsked')) && !(await hasNerdFont($))) await update($, popup, () => 'font')
-    try {
-      const u = await $.session.usage()
-      await update($, usage, () => toUsage(u.context, u.rateLimits))
-    } catch {}
+    const refresh = async () => {
+      try {
+        const u = await $.session.usage()
+        await update($, usage, () => toUsage(u.context, u.rateLimits))
+      } catch {}
+    }
+    await refresh()
+    // The 5h and 7d countdowns tick while Claude sits idle: once a minute is plenty.
+    $.clock.every(60_000, () => { void refresh() })
     return result
   })
 
