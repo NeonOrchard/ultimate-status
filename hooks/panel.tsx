@@ -53,6 +53,8 @@ export type PanelContext = {
   els: Record<string, unknown>
   // The bar as it draws now, block by block, for the live preview.
   preview: { side: Side; divider: string; pieces: Piece[] }[]
+  // The installed version, shown after the title.
+  version: string
   bar: BarConfig
   colors: Colors
   // The color being picked ('model', 'path.2', ...) and the flavor shown.
@@ -359,7 +361,7 @@ export function panel(ctx: PanelContext): RenderElement {
   return (
     <Box flexDirection="column" paddingX={1}>
       <Box gap={2} justifyContent="space-between">
-        <Text bold color={ui.title}>Ultimate Status</Text>
+        <Text><Text bold color={ui.title}>Ultimate Status</Text><Text color={ui.note}> v{ctx.version}</Text></Text>
         <Text color={ui.note}>{menu ? '↑↓ choose · Enter picks' : 'Tab/↑↓ move · Enter acts · Esc closes'}</Text>
       </Box>
       {preview}

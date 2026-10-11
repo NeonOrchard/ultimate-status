@@ -777,6 +777,7 @@ export const register: Register = on => {
     return panel({
       els: $.ui.resolve(e) as unknown as Record<string, unknown>,
       preview,
+      version: await version($),
       bar,
       colors: C,
       ctxBar,
