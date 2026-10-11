@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'claude-code/testing'
-import { pathSep, prettyModel, shortenPath, splitPath, until } from './register'
+import { pathSep, prettyModel, shortenPath, splitPath, stale, until } from './register'
 
 describe('ultimate-status', () => {
   test('model ids read nicely', () => {
@@ -65,5 +65,15 @@ describe('time until reset', () => {
   test('unknown or past shows nothing, so the percent shows instead', () => {
     expect(until(undefined, now)).toBe('')
     expect(until('2026-10-10T11:00:00Z', now)).toBe('')
+  })
+})
+
+describe('stale percents', () => {
+  test('grey until the first report, after 10 minutes, or once the window resets', () => {
+    const now = Date.parse('2026-10-10T12:00:00Z')
+    expect(stale(undefined, undefined, now)).toBe(true)
+    expect(stale(now - 60_000, '2026-10-10T14:00:00Z', now)).toBe(false)
+    expect(stale(now - 11 * 60_000, '2026-10-10T14:00:00Z', now)).toBe(true)
+    expect(stale(now - 60_000, '2026-10-10T11:59:00Z', now)).toBe(true)
   })
 })

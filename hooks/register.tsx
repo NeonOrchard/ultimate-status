@@ -227,12 +227,21 @@ type Bar = Awaited<ReturnType<typeof gather>>
 // A usage window: its label, then the time until it resets and/or the percent
 // left (as set), the percent colored by how much is left. `5h 3m 95%`, or
 // compact `5h3m 95%`. With no reset time known yet, the percent shows.
-function usageItem(label: string, labelFg: string, timeFg: string, used: number | undefined, resets: string | undefined, show: string): Piece[] {
+// A percent goes stale when Claude hasn't reported for a while (other sessions
+// may have used some since) or its window has reset; it then shows grey, `~95%`.
+const STALE_MS = 10 * 60_000
+export function stale(measuredAt: number | undefined, resets: string | undefined, now = Date.now()): boolean {
+  if (!measuredAt || now - measuredAt > STALE_MS) return true
+  return !!resets && Date.parse(resets) <= now
+}
+
+function usageItem(label: string, labelFg: string, timeFg: string, used: number | undefined, resets: string | undefined, show: string, measuredAt?: number): Piece[] {
   const t = show !== 'percent' ? until(resets, Date.now(), usageCompact) : ''
   // Labels hidden: just the time and percent, `22h 37m 69%`.
   const out: Piece[] = usageLabels ? [{ fg: labelFg, text: label }] : []
   if (t) out.push({ fg: timeFg, text: (usageLabels && !usageCompact ? ' ' : '') + t })
-  if (show !== 'time' || !t) out.push({ fg: pctColor(used), text: `${out.length ? ' ' : ''}${leftPct(used)}` })
+  const old = used !== undefined && stale(measuredAt, resets)
+  if (show !== 'time' || !t) out.push({ fg: old ? C.dim : pctColor(used), text: `${out.length ? ' ' : ''}${old ? '~' : ''}${leftPct(used)}` })
   return out
 }
 const pctColor = (used?: number) => {
@@ -292,9 +301,9 @@ function itemContent(d: Bar, id: ItemId, max?: number): Piece[] {
       ].filter(p => p.text)
     }
     case 'five':
-      return usageItem('5h', C.fiveLabel, C.fiveValue, d.u.five, d.u.fiveResets, fiveShow)
+      return usageItem('5h', C.fiveLabel, C.fiveValue, d.u.five, d.u.fiveResets, fiveShow, d.u.measuredAt)
     case 'week':
-      return usageItem('7d', C.weekLabel, C.weekValue, d.u.week, d.u.weekResets, weekShow)
+      return usageItem('7d', C.weekLabel, C.weekValue, d.u.week, d.u.weekResets, weekShow, d.u.measuredAt)
   }
 }
 
@@ -562,14 +571,16 @@ async function barParts($: EngineInterface, e: any, columns: number | string) {
   const close = () => update($, popup, () => null)
   const toggle = (id: string) => () => update($, popup, cur => (cur === id ? null : id))
 
+  const staleTip = (at: number | undefined, resets: string | undefined) =>
+    stale(at, resets) ? ' Grey ~ means it may be out of date: it updates after my next reply.' : ''
   const tips: [ItemId, string][] = [
     ['model', `Model: ${d.model}. Click to change the model or the speed.`],
     ['speed', `Speed: ${d.speed}. Click to change the model or the speed.`],
     ['path', `Folder: ${d.cwd}. Click any part to open a new iTerm tab there.`],
     ['branch', `Git branch: ${d.branch || 'none'}. Click to switch branches or make a new one.`],
     ['ctx', `Context: ${pct(d.ctx)} of my working memory for this chat is used. When it fills up, older parts get summarized.`],
-    ['five', `5-hour window: ${leftPct(d.u.five)} left of your usage limit for the current 5 hours.${left(d.u.fiveResets)}`],
-    ['week', `7-day window: ${leftPct(d.u.week)} left of your weekly usage limit.${left(d.u.weekResets)}`],
+    ['five', `5-hour window: ${leftPct(d.u.five)} left of your usage limit for the current 5 hours.${left(d.u.fiveResets)}${staleTip(d.u.measuredAt, d.u.fiveResets)}`],
+    ['week', `7-day window: ${leftPct(d.u.week)} left of your weekly usage limit.${left(d.u.weekResets)}${staleTip(d.u.measuredAt, d.u.weekResets)}`],
   ]
 
   let popupRow = null
@@ -735,7 +746,7 @@ export const register: Register = on => {
     const refresh = async () => {
       try {
         const u = await $.session.usage()
-        await update($, usage, () => toUsage(u.context, u.rateLimits))
+        await update($, usage, prev => ({ ...toUsage(u.context, u.rateLimits), measuredAt: prev.measuredAt }))
       } catch {}
     }
     await refresh()
@@ -807,7 +818,7 @@ export const register: Register = on => {
   })
 
   on('session.measure', async ($, e, next) => {
-    await update($, usage, () => toUsage(e.context, e.rateLimits))
+    await update($, usage, () => ({ ...toUsage(e.context, e.rateLimits), measuredAt: Date.now() }))
     return next(e)
   })
 

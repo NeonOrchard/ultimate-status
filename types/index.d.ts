@@ -4,6 +4,8 @@ export type Usage = {
   week?: number
   fiveResets?: string
   weekResets?: string
+  // When Claude last reported fresh numbers (ms); unset until the first reply.
+  measuredAt?: number
 }
 
 declare module 'claude-code' {
